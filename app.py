@@ -188,8 +188,8 @@ def index():
     """Página principal del dashboard."""
     if estado_global['config'] is None:
         estado_global['config'] = cargar_config_default()
-    if estado_global['resultado'] is None:
-        estado_global['resultado'] = ejecutar_modelo()
+    # ⚠️ NO ejecutar modelo automáticamente - el usuario DEBE cargar un Excel primero
+    # El frontend pedirá /api/resultado y obtendrá un error si no hay Excel
 
     return render_template('index.html')
 
@@ -205,8 +205,11 @@ def get_config():
 @app.route('/api/resultado', methods=['GET'])
 def get_resultado():
     """Retorna el resultado del modelo (flujo de caja, indicadores, etc)."""
+    # 🔧 IMPORTANTE: NO usar fallback a ejecutar_modelo() porque da valores incorrectos en Render
+    # El usuario DEBE cargar un Excel explícitamente primero
+
     if estado_global['resultado'] is None:
-        # 🔧 Intentar cargar desde archivo guardado (resultado de Excel cargado)
+        # Intentar cargar desde archivo guardado (para el caso que perista entre requests en la misma sesión)
         if os.path.exists('resultado_excel_cargado.json'):
             try:
                 with open('resultado_excel_cargado.json', 'r', encoding='utf-8') as f:
@@ -214,11 +217,11 @@ def get_resultado():
                 print(f"✅ Resultado cargado desde archivo: resultado_excel_cargado.json")
             except Exception as e:
                 print(f"⚠️  Error cargando resultado: {e}")
-                # Fallback: ejecutar modelo desde cero
-                estado_global['resultado'] = ejecutar_modelo()
+                # NO ejecutar modelo con valores por defecto; retornar error
+                return jsonify({'error': 'Por favor, carga un archivo Excel primero'}), 400
         else:
-            # Si no existe archivo de Excel, ejecutar modelo con valores por defecto
-            estado_global['resultado'] = ejecutar_modelo()
+            # No hay Excel cargado: retornar error en lugar de valores fake
+            return jsonify({'error': 'Por favor, carga un archivo Excel primero'}), 400
 
     resultado = estado_global['resultado']
 

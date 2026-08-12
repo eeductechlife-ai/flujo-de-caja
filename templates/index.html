@@ -982,12 +982,26 @@
         }
 
         async function cargarDatos() {
-            const [resConfig, resResultado] = await Promise.all([
-                fetch('/api/config').then(r => r.json()),
-                fetch('/api/resultado').then(r => r.json())
-            ]);
+            const resConfig = await fetch('/api/config').then(r => r.json());
             estado.config = resConfig;
-            estado.resultado = resResultado;
+
+            // Cargar resultado - si da 400, mostrar mensaje
+            const resResultado = await fetch('/api/resultado');
+            if (!resResultado.ok) {
+                const err = await resResultado.json();
+                document.getElementById('loading').innerHTML = `
+                    <div style="text-align: center; padding: 60px 40px; color: #e74c3c;">
+                        <p style="font-size: 32px; margin-bottom: 20px;">📁</p>
+                        <p style="font-size: 18px; font-weight: bold;">Por favor carga un archivo Excel</p>
+                        <p style="font-size: 14px; margin-top: 10px; opacity: 0.9;">${err.error || 'No hay datos disponibles'}</p>
+                    </div>
+                `;
+                document.getElementById('content').style.display = 'none';
+                return;
+            }
+
+            const resResultadoData = await resResultado.json();
+            estado.resultado = resResultadoData;
         }
 
         function cambiarTab(index) {
