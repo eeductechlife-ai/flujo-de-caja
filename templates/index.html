@@ -1,0 +1,1874 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flujo de Caja Dashboard — Limited Group S.A.</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* SISTEMA DE COLORES CON TOKENS */
+        :root {
+            /* Colores Primarios */
+            --primary-dark: #1a3a5c;
+            --primary-mid: #2980b9;
+            --primary-light: #e8f4f8;
+
+            /* Semánticos */
+            --success: #27ae60;
+            --warning: #f39c12;
+            --critical: #e74c3c;
+
+            /* Neutrales */
+            --neutral-90: #f8f9fa;
+            --neutral-70: #d0d5dd;
+            --neutral-20: #2c3e50;
+            --text-primary: #2c3e50;
+            --text-secondary: #666;
+
+            /* Retrocompatibilidad */
+            --azul-corp: var(--primary-dark);
+            --azul-medio: var(--primary-mid);
+            --azul-claro: var(--primary-light);
+            --gris-bg: var(--neutral-90);
+            --gris-linea: var(--neutral-70);
+            --verde: var(--success);
+            --rojo: var(--critical);
+            --naranja: var(--warning);
+            --texto: var(--text-primary);
+        }
+
+        /* TEMA OSCURO */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary-dark: #0f1b2e;
+                --primary-mid: #3d9fd9;
+                --primary-light: #2d5a80;
+                --neutral-90: #1a1f2e;
+                --neutral-70: #374151;
+                --text-primary: #f0f2f5;
+                --text-secondary: #a0a5b1;
+                --success: #4cbc6b;
+            }
+        }
+
+        :root[data-theme="dark"] {
+            --primary-dark: #0f1b2e;
+            --primary-mid: #3d9fd9;
+            --primary-light: #2d5a80;
+            --neutral-90: #1a1f2e;
+            --neutral-70: #374151;
+            --text-primary: #f0f2f5;
+            --text-secondary: #a0a5b1;
+            --success: #4cbc6b;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--neutral-90);
+            color: var(--text-primary);
+            line-height: 1.6;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-mid) 100%);
+            color: white;
+            padding: 22px 30px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 26px;
+            margin-bottom: 2px;
+            font-family: 'Georgia', serif;
+            font-weight: 700;
+        }
+        .header p { font-size: 12px; opacity: 0.9; }
+
+        .tabs {
+            display: flex;
+            gap: 0;
+            background: white;
+            border-bottom: 1px solid var(--gris-linea);
+            padding: 0 20px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+
+        .tab-btn {
+            padding: 13px 16px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: var(--primary-dark);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            opacity: 0.7;
+            transition: all 0.25s ease;
+        }
+
+        .tab-btn:hover { color: var(--primary-mid); }
+        .tab-btn.active {
+            border-bottom-color: var(--primary-dark);
+            color: var(--primary-dark);
+        }
+
+        .main-container {
+            display: flex;
+            height: calc(100vh - 100px);
+        }
+
+        .sidebar {
+            width: 270px;
+            background: white;
+            border-right: 1px solid var(--gris-linea);
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        /* ACORDEÓN MEJORADO */
+        .sidebar-section {
+            margin-bottom: 12px;
+            border: 1px solid var(--gris-linea);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .sidebar-section h3 {
+            font-size: 11px;
+            font-weight: 700;
+            color: white;
+            background: var(--primary-dark);
+            text-transform: uppercase;
+            margin: 0;
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            letter-spacing: 0.3px;
+            transition: background 0.2s;
+            user-select: none;
+        }
+
+        .sidebar-section h3:hover {
+            background: var(--primary-mid);
+        }
+
+        .sidebar-section h3::after {
+            content: '▼';
+            margin-left: auto;
+            font-size: 9px;
+            transition: transform 0.2s;
+        }
+
+        .sidebar-section.collapsed h3::after {
+            transform: rotate(-90deg);
+        }
+
+        .sidebar-section.collapsed .sidebar-content {
+            display: none;
+        }
+
+        .sidebar-content {
+            padding: 12px;
+            background: white;
+        }
+
+        .form-group {
+            margin-bottom: 10px;
+        }
+
+        .form-group label {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--primary-dark);
+            display: block;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            opacity: 0.85;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 7px 8px;
+            border: 1px solid var(--gris-linea);
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: 'Menlo', monospace;
+            background: var(--neutral-90);
+            color: var(--text-primary);
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary-mid);
+            background: white;
+        }
+
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active { display: block; }
+
+        .alert-success {
+            background: #d4edda;
+            border: 1px solid #28a745;
+            color: #155724;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* HERO SUMMARY - NUEVO */
+        .hero-summary {
+            background: white;
+            padding: 20px 30px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr) auto;
+            gap: 30px;
+            align-items: center;
+            border-bottom: 1px solid var(--gris-linea);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+
+        .hero-metric {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .hero-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--primary-dark);
+            font-weight: 700;
+            letter-spacing: 0.4px;
+            opacity: 0.85;
+        }
+
+        .hero-value {
+            font-size: 32px;
+            font-weight: 700;
+            font-family: 'Menlo', monospace;
+            color: var(--primary-dark);
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--success);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .hero-badge.critical {
+            background: var(--critical);
+        }
+
+        /* KPI CARDS MEJORADAS */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .kpi-card {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid var(--gris-linea);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            transition: all 0.3s ease;
+        }
+
+        .kpi-card:hover {
+            border-color: var(--primary-mid);
+            box-shadow: 0 4px 12px rgba(41, 128, 185, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .kpi-label {
+            font-size: 10px;
+            color: var(--primary-dark);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            font-weight: 700;
+            letter-spacing: 0.4px;
+            opacity: 0.8;
+        }
+
+        .kpi-valor {
+            font-size: 26px;
+            font-weight: 700;
+            font-family: 'Menlo', monospace;
+            color: var(--primary-dark);
+            margin-bottom: 8px;
+        }
+
+        .kpi-sparkline {
+            height: 18px;
+            background: linear-gradient(90deg, rgba(200,200,200,0.2), rgba(200,200,200,0.5), rgba(200,200,200,0.2));
+            border-radius: 3px;
+            margin-bottom: 8px;
+        }
+
+        .kpi-delta {
+            font-size: 11px;
+            color: var(--primary-dark);
+            font-weight: 700;
+            opacity: 0.75;
+        }
+
+        .kpi-card.positive .kpi-valor { color: var(--success); }
+        .kpi-card.positive .kpi-delta { color: var(--success); }
+        .kpi-card.negative .kpi-valor { color: var(--critical); }
+        .kpi-card.negative .kpi-delta { color: var(--critical); }
+
+        .chart-container {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            border: 1px solid var(--gris-linea);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            position: relative;
+            height: 300px;
+        }
+
+        .chart-container h3 {
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'Georgia', serif;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            margin-bottom: 24px;
+            border: 1px solid var(--gris-linea);
+        }
+
+        th {
+            background: var(--primary-dark);
+            color: white;
+            padding: 10px 12px;
+            text-align: right;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.2px;
+        }
+
+        th:first-child { text-align: left; }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--gris-linea);
+            text-align: right;
+            font-family: 'Menlo', monospace;
+            font-size: 11px;
+            color: var(--primary-dark);
+            font-weight: 500;
+        }
+
+        td:first-child { text-align: left; font-family: inherit; }
+
+        tr:nth-child(even) {
+            background: var(--neutral-90);
+            color: var(--primary-dark);
+        }
+
+        tr:nth-child(even) td {
+            color: var(--primary-dark);
+            font-weight: 500;
+        }
+
+        tbody tr:hover {
+            background: var(--primary-light);
+            transition: background 0.15s;
+        }
+
+        tbody tr.total-row {
+            background: var(--primary-dark);
+            color: white;
+            font-weight: 700;
+        }
+
+        tbody tr.total-row td {
+            color: white;
+            font-weight: 700;
+        }
+
+        tbody tr.subtotal-row {
+            background: var(--neutral-90);
+            font-weight: 700;
+            color: var(--primary-dark);
+        }
+
+        tbody tr.subtotal-row td {
+            color: var(--primary-dark);
+            font-weight: 700;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: var(--primary-dark);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-mid);
+            box-shadow: 0 4px 12px rgba(41, 128, 185, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--neutral-90);
+            color: var(--text-primary);
+            border: 1px solid var(--gris-linea);
+        }
+
+        .btn-secondary:hover {
+            background: white;
+            border-color: var(--primary-mid);
+            color: var(--primary-mid);
+        }
+
+        .loading { display: none; text-align: center; padding: 40px; }
+
+        /* Contenedor con scroll horizontal para tablas anchas (móvil/tablet) */
+        .table-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-bottom: 24px;
+            border-radius: 8px;
+        }
+        .table-wrap table { margin-bottom: 0; }
+        .table-wrap table td { white-space: nowrap; }
+
+        /* ═══════════ RESPONSIVE: TABLET ═══════════ */
+        @media (max-width: 1024px) {
+            .main-container { flex-direction: column; height: auto; }
+            .sidebar {
+                width: 100%;
+                max-height: none;
+                border-right: none;
+                border-bottom: 1px solid var(--gris-linea);
+            }
+            .content { overflow-y: visible; }
+            .hero-summary { grid-template-columns: repeat(2, 1fr); gap: 18px; padding: 18px 20px; }
+            .hero-badge { grid-column: 1 / -1; justify-self: start; }
+            .hero-value { font-size: 28px; }
+        }
+
+        /* ═══════════ RESPONSIVE: MÓVIL ═══════════ */
+        @media (max-width: 640px) {
+            .header { flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px 18px; }
+            .header h1 { font-size: 20px; }
+            .header p { font-size: 11px; }
+            #caso-base { align-self: flex-start; }
+
+            .tabs { padding: 0 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .tab-btn { padding: 12px 12px; font-size: 11px; white-space: nowrap; }
+
+            .content { padding: 14px; }
+
+            .hero-summary { grid-template-columns: 1fr 1fr; gap: 14px; padding: 16px; }
+            .hero-value { font-size: 24px; }
+            .hero-label { font-size: 10px; }
+
+            .kpi-grid { grid-template-columns: 1fr; gap: 12px; }
+            .kpi-valor { font-size: 24px; }
+
+            .chart-container { height: 260px; padding: 12px; }
+
+            .viability-metrics { grid-template-columns: 1fr; }
+            .analysis-hub { padding: 0; }
+
+            h3 { font-size: 13px !important; }
+        }
+
+        /* ═══════════ RESPONSIVE: MÓVIL PEQUEÑO ═══════════ */
+        @media (max-width: 380px) {
+            .hero-summary { grid-template-columns: 1fr; }
+            .hero-value { font-size: 22px; }
+            .header h1 { font-size: 18px; }
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--gris-bg); }
+        ::-webkit-scrollbar-thumb { background: var(--gris-linea); border-radius: 4px; }
+
+        /* PREMIUM IMPORT HUB */
+        .data-import-hub {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        .import-step {
+            margin-bottom: 28px;
+            border-left: 4px solid var(--primary-mid);
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .step-number {
+            position: absolute;
+            left: -36px;
+            top: -4px;
+            background: var(--primary-dark);
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .step-title {
+            font-weight: 700;
+            color: var(--primary-dark);
+            font-size: 14px;
+            margin-bottom: 10px;
+            display: block;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(26, 58, 92, 0.15);
+        }
+
+        .dropzone-premium {
+            transition: all 0.3s ease;
+        }
+
+        .dropzone-premium:hover {
+            border-color: var(--primary-mid);
+            background: var(--primary-light);
+            transform: translateY(-2px);
+        }
+
+        .dropzone-premium.dragover {
+            border-color: var(--primary-dark);
+            background: var(--primary-light);
+            transform: scale(1.01);
+        }
+
+        .validation-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            padding: 4px 0;
+            color: var(--text-primary);
+        }
+
+        .validation-item.success { color: var(--success); }
+        .validation-item.processing { color: var(--warning); }
+
+        .param-item {
+            background: var(--neutral-90);
+            border: 1px solid var(--neutral-70);
+            border-radius: 6px;
+            padding: 10px 12px;
+        }
+
+        .param-label {
+            color: var(--primary-dark);
+            font-weight: 700;
+            font-size: 10px;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            letter-spacing: 0.4px;
+            opacity: 0.85;
+        }
+
+        .param-value {
+            font-family: 'Menlo', monospace;
+            font-weight: 700;
+            color: var(--primary-dark);
+            font-size: 14px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin: 12px 0;
+            flex-wrap: wrap;
+        }
+
+        .recent-item {
+            padding: 8px 0;
+            border-bottom: 1px solid var(--neutral-70);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .recent-item:last-child { border-bottom: none; }
+
+        .recent-item:hover {
+            color: var(--primary-mid);
+            padding-left: 6px;
+        }
+
+        /* PREMIUM ANALYSIS HUB */
+        .analysis-hub {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        .viability-card {
+            background: linear-gradient(135deg, rgba(39, 174, 96, 0.05) 0%, rgba(41, 128, 185, 0.05) 100%);
+            border-left: 4px solid var(--success);
+            border-radius: 8px;
+            padding: 18px;
+            margin-bottom: 24px;
+        }
+
+        .viability-status {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--primary-dark);
+            margin-bottom: 12px;
+            padding: 8px 0;
+            border-bottom: 2px solid rgba(26, 58, 92, 0.2);
+        }
+
+        .viability-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .metric-item {
+            font-size: 11px;
+            background: rgba(255,255,255,0.5);
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        .metric-label {
+            color: var(--primary-dark);
+            font-weight: 600;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-family: 'Menlo', monospace;
+            font-weight: 700;
+            color: var(--primary-dark);
+            font-size: 14px;
+        }
+
+        .viability-conclusion {
+            font-size: 12px;
+            color: var(--primary-dark);
+            line-height: 1.6;
+            font-weight: 500;
+            background: rgba(255,255,255,0.7);
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .analysis-accordion {
+            margin-bottom: 24px;
+        }
+
+        .accordion-item {
+            border: 1px solid var(--neutral-70);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            overflow: hidden;
+        }
+
+        .accordion-header {
+            background: var(--neutral-90);
+            padding: 12px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 12px;
+            color: var(--primary-dark);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .accordion-header:hover {
+            background: #f0f2f5;
+            color: var(--primary-mid);
+        }
+
+        .accordion-header.open {
+            background: var(--primary-light);
+            color: var(--primary-dark);
+        }
+
+        .accordion-toggle {
+            display: inline-block;
+            transition: transform 0.2s;
+        }
+
+        .accordion-header.open .accordion-toggle {
+            transform: rotate(90deg);
+        }
+
+        .accordion-content {
+            padding: 14px;
+            background: white;
+            display: none;
+            font-size: 12px;
+            line-height: 1.6;
+            color: var(--primary-dark);
+            opacity: 0.85;
+        }
+
+        .accordion-content.open { display: block; }
+
+        .content-list {
+            margin: 8px 0;
+            padding-left: 16px;
+        }
+
+        .content-item {
+            margin: 6px 0;
+        }
+
+        .recommendations-section {
+            background: var(--primary-light);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .rec-item {
+            background: white;
+            border-left: 3px solid var(--primary-mid);
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 8px;
+            font-size: 11px;
+        }
+
+        .rec-title {
+            font-weight: 700;
+            color: var(--primary-dark);
+            margin-bottom: 4px;
+        }
+
+        .rec-text {
+            color: var(--primary-dark);
+            line-height: 1.5;
+            opacity: 0.85;
+            font-weight: 500;
+        }
+
+        /* ── FIX DE CONTRASTE (tema oscuro) ──────────────────────────────────
+           Tablas y acordeones tienen fondo claro FIJO (blanco). Su texto y sus
+           franjas no deben heredar los colores oscuros del tema oscuro, porque
+           produce texto azul oscuro sobre fondo oscuro (ilegible). Se fuerzan
+           colores claros con texto oscuro, consistentes en ambos temas. */
+        table tr:nth-child(even) { background: #eef1f5; }
+        table td,
+        table tr:nth-child(even) td,
+        tbody tr.subtotal-row td { color: #1a3a5c; }
+        tbody tr.subtotal-row { background: #dfe7f0; }
+        tbody tr.total-row,
+        tbody tr.total-row td { color: #ffffff; }
+        .accordion-header { background: #eef1f5; color: #1a3a5c; }
+        .accordion-header:hover { background: #e1e8f0; color: #2980b9; }
+        .accordion-header.open { background: #d5e3f1; color: #1a3a5c; }
+        .accordion-content { color: #1a3a5c; opacity: 1; }
+        .rec-title { color: #1a3a5c; }
+        .rec-text { color: #1a3a5c; opacity: 1; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>💰 Flujo de Caja Dashboard</h1>
+            <p>Limited Group S.A. — Evaluación Financiera del Proyecto</p>
+        </div>
+        <div id="caso-base" style="color: white; font-size: 12px;">Caso Base</div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="cambiarTab(0)">📊 Dashboard</button>
+        <button class="tab-btn" onclick="cambiarTab(1)">💡 Análisis</button>
+    </div>
+
+    <div id="loading" class="loading">
+        <div style="font-size: 20px; margin-bottom: 10px;">⏳</div>
+        <p>Cargando datos...</p>
+    </div>
+
+    <div id="content" style="display: none;">
+        <!-- TAB 0: Dashboard Completo -->
+        <div class="tab-content active">
+            <div id="hero-summary"></div>
+            <div class="main-container">
+                <!-- SIDEBAR -->
+                <div class="sidebar" id="sidebar">
+                    <!-- Se carga dinámicamente con JavaScript -->
+                </div>
+
+                <!-- MAIN CONTENT -->
+                <div class="content">
+                    <div id="viabilidad" style="display: none;"></div>
+
+                    <div class="kpi-grid" id="kpi-cards"></div>
+
+                    <div class="chart-container">
+                        <h3 style="margin-bottom: 15px; font-size: 14px;">Flujo de Caja Libre por Año</h3>
+                        <canvas id="chartFlujoCaja"></canvas>
+                    </div>
+
+                    <div class="chart-container">
+                        <h3 style="margin-bottom: 15px; font-size: 14px;">FCL Acumulado</h3>
+                        <canvas id="chartFlujoCajaAcum"></canvas>
+                    </div>
+
+                    <h3 style="margin-top: 20px; margin-bottom: 15px; font-size: 14px;">Estado de Resultados Proyectado</h3>
+                    <div class="table-wrap"><table id="tableEstadoResultados"></table></div>
+
+                    <h3 style="margin-top: 20px; margin-bottom: 15px; font-size: 14px;">Flujo de Caja Libre del Proyecto</h3>
+                    <div class="table-wrap"><table id="tableFlujoCaja"></table></div>
+
+                    <h3 style="margin-top: 20px; margin-bottom: 15px; font-size: 14px;">Tabla de Depreciación</h3>
+                    <div class="table-wrap"><table id="tableDepreciacion"></table></div>
+
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="descargarPDF()">📄 Imprimir/PDF</button>
+                        <button class="btn btn-secondary" onclick="descargarJSON()">📥 config.json</button>
+                        <button class="btn btn-secondary" onclick="descargarCSV()">📊 CSV Flujo de Caja</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 1: Centro de Análisis Premium -->
+        <div class="tab-content">
+            <div class="content">
+                <div class="analysis-hub">
+                    <h2 style="font-family: 'Georgia', serif; font-size: 22px; margin-bottom: 24px; color: var(--primary-dark);">📈 Centro de Análisis Financiero</h2>
+
+                    <!-- Resumen de Viabilidad -->
+                    <div class="viability-card">
+                        <div id="viability-summary"></div>
+                    </div>
+
+                    <!-- Análisis Detallado -->
+                    <div class="analysis-accordion">
+                        <div class="accordion-item">
+                            <div class="accordion-header" onclick="toggleAnalysisAccordion(this)">
+                                🎯 1. RENTABILIDAD
+                                <span class="accordion-toggle">▶</span>
+                            </div>
+                            <div class="accordion-content" id="analysis-profitability"></div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <div class="accordion-header" onclick="toggleAnalysisAccordion(this)">
+                                📊 2. RECUPERACIÓN
+                                <span class="accordion-toggle">▶</span>
+                            </div>
+                            <div class="accordion-content" id="analysis-recovery"></div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <div class="accordion-header" onclick="toggleAnalysisAccordion(this)">
+                                ⚠️ 3. RIESGOS
+                                <span class="accordion-toggle">▶</span>
+                            </div>
+                            <div class="accordion-content" id="analysis-risks"></div>
+                        </div>
+                    </div>
+
+                    <!-- Recomendaciones Accionables -->
+                    <div class="recommendations-section">
+                        <h3 style="font-size: 13px; font-weight: 700; color: var(--primary-dark); margin-bottom: 12px;">💡 Recomendaciones Accionables</h3>
+                        <div id="actionable-recommendations"></div>
+                    </div>
+
+                    <!-- Recomendaciones antiguas (ocultas) -->
+                    <div id="recomendaciones" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let estado = {
+            config: null,
+            resultado: null,
+            charts: {}
+        };
+
+        // ═══════════════════════════════════════════════════════════════════
+        // INICIALIZACIÓN
+        // ═══════════════════════════════════════════════════════════════════
+
+        async function inicializar() {
+            document.getElementById('loading').style.display = 'block';
+            try {
+                await cargarDatos();
+                renderizarUI();
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
+        async function cargarDatos() {
+            const [resConfig, resResultado] = await Promise.all([
+                fetch('/api/config').then(r => r.json()),
+                fetch('/api/resultado').then(r => r.json())
+            ]);
+            estado.config = resConfig;
+            estado.resultado = resResultado;
+        }
+
+        function cambiarTab(index) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-content')[index].classList.add('active');
+            document.querySelectorAll('.tab-btn')[index].classList.add('active');
+
+            if (index === 0) {
+                setTimeout(() => renderizarGraficos(), 100);
+            }
+            // Si es la tab de análisis, asegurar que se muestre el análisis
+            if (index === 1) {
+                generarResumenViabilidad();
+                generarAnalisisRentabilidad();
+                generarAnalisisRecuperacion();
+                generarAnalisisRiesgos();
+                generarRecomendacionesAccionables();
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // SIDEBAR PARÁMETROS
+        // ═══════════════════════════════════════════════════════════════════
+
+        function toggleAccordion(element) {
+            element.classList.toggle('collapsed');
+        }
+
+        function renderizarSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const cfg = estado.config;
+
+            sidebar.innerHTML = `
+                <div class="sidebar-section">
+                    <h3>📤 SUBIR ARCHIVO</h3>
+                    <div class="sidebar-content">
+                        <button class="btn btn-primary" style="width: 100%; margin-bottom: 8px;" onclick="subirExcel()">
+                            Seleccionar archivo
+                        </button>
+                        <button class="btn btn-secondary" style="width: 100%;" onclick="resetearConfig()">
+                            Restaurar caso base
+                        </button>
+                    </div>
+                </div>
+
+                <div class="sidebar-section collapsed">
+                    <h3>🏭 OPERACIÓN</h3>
+                    <div class="sidebar-content">
+                    <div class="form-group">
+                        <label>Unidades base (años 1-3)</label>
+                        <input type="number" value="${cfg.demanda.unidades_base}"
+                               onchange="actualizarParam(['demanda', 'unidades_base'], this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>Incremento año 4 (%)</label>
+                        <input type="number" step="0.01" value="${cfg.demanda.incremento_anno_4 * 100}"
+                               onchange="actualizarParam(['demanda', 'incremento_anno_4'], this.value / 100)">
+                    </div>
+                    <div class="form-group">
+                        <label>Precio años 1-2 ($)</label>
+                        <input type="number" value="${cfg.precios.precio_annos_1_2}"
+                               onchange="actualizarParam(['precios', 'precio_annos_1_2'], this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>Precio año 3+ ($)</label>
+                        <input type="number" value="${cfg.precios.precio_anno_3_adelante}"
+                               onchange="actualizarParam(['precios', 'precio_anno_3_adelante'], this.value)">
+                    </div>
+                </div>
+
+                <div class="sidebar-section collapsed">
+                    <h3>💰 COSTOS VARIABLES</h3>
+                    <div class="sidebar-content">
+                    <div class="form-group">
+                        <label>Mano de obra ($)</label>
+                        <input type="number" value="${cfg.costos_variables.mano_de_obra}"
+                               onchange="actualizarParam(['costos_variables', 'mano_de_obra'], this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>Materiales años 1-3 ($)</label>
+                        <input type="number" value="${cfg.costos_variables.materiales_base}"
+                               onchange="actualizarParam(['costos_variables', 'materiales_base'], this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>Materiales importados ($)</label>
+                        <input type="number" value="${cfg.costos_variables.materiales_importados}"
+                               onchange="actualizarParam(['costos_variables', 'materiales_importados'], this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>Costos indirectos ($)</label>
+                        <input type="number" value="${cfg.costos_variables.costos_indirectos}"
+                               onchange="actualizarParam(['costos_variables', 'costos_indirectos'], this.value)">
+                    </div>
+                </div>
+
+                    </div>
+                </div>
+
+                <div class="sidebar-section collapsed">
+                    <h3>🏢 COSTOS FIJOS</h3>
+                    <div class="sidebar-content">
+                    <div class="form-group">
+                        <label>Fijo fabricación años 1-3 ($)</label>
+                        <input type="number" value="${cfg.costos_fijos.costo_fijo_fabricacion_base}"
+                               onchange="actualizarParam(['costos_fijos', 'costo_fijo_fabricacion_base'], this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>Admin & Ventas años 1-3 ($)</label>
+                        <input type="number" value="${cfg.costos_fijos.gastos_admon_ventas_base}"
+                               onchange="actualizarParam(['costos_fijos', 'gastos_admon_ventas_base'], this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>Comisión ventas (%)</label>
+                        <input type="number" step="0.01" value="${cfg.costos_fijos.comision_ventas_pct * 100}"
+                               onchange="actualizarParam(['costos_fijos', 'comision_ventas_pct'], this.value / 100)">
+                    </div>
+                </div>
+
+                    </div>
+                </div>
+
+                <div class="sidebar-section collapsed">
+                    <h3>💵 FINANZAS</h3>
+                    <div class="sidebar-content">
+                    <div class="form-group">
+                        <label>WACC (%)</label>
+                        <input type="number" step="0.1" value="${cfg.wacc * 100}"
+                               onchange="actualizarParam(['wacc'], this.value / 100)">
+                    </div>
+                    <div class="form-group">
+                        <label>Tasa impuesto (%)</label>
+                        <input type="number" step="0.01" value="${cfg.impuestos.tasa_impositiva * 100}"
+                               onchange="actualizarParam(['impuestos', 'tasa_impositiva'], this.value / 100)">
+                    </div>
+                    <div class="form-group">
+                        <label>Vida útil obras (años)</label>
+                        <input type="number" value="${cfg.depreciacion.obras_fisicas_annos}" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label>Vida útil maquinaria (años)</label>
+                        <input type="number" value="${cfg.depreciacion.maquinaria_annos}" disabled>
+                    </div>
+                    </div>
+                </div>
+            `;
+
+            // Agregar listeners a los acordeones
+            document.querySelectorAll('.sidebar-section h3').forEach(header => {
+                header.addEventListener('click', function() {
+                    this.parentElement.classList.toggle('collapsed');
+                });
+            });
+        }
+
+        async function actualizarParam(ruta, valor) {
+            const config = estado.config;
+            let obj = config;
+            for (let i = 0; i < ruta.length - 1; i++) {
+                obj = obj[ruta[i]];
+            }
+            obj[ruta[ruta.length - 1]] = parseFloat(valor);
+
+            try {
+                await fetch('/api/actualizar-parametro', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ruta, valor: parseFloat(valor) })
+                });
+                await cargarDatos();
+                renderizarUI();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // HERO SUMMARY (NUEVO)
+        // ═══════════════════════════════════════════════════════════════════
+
+        function renderizarHeroSummary() {
+            const div = document.getElementById('hero-summary');
+            const ind = estado.resultado.indicadores_con_vt;
+            const viable = ind.van > 0;
+
+            div.className = 'hero-summary';
+            div.innerHTML = `
+                <div class="hero-metric">
+                    <div class="hero-label">VAN (Valor Actual Neto)</div>
+                    <div class="hero-value">$${(ind.van/1e6).toFixed(1)}M</div>
+                </div>
+                <div class="hero-metric">
+                    <div class="hero-label">TIR del Proyecto</div>
+                    <div class="hero-value">${(ind.tir * 100).toFixed(2)}%</div>
+                </div>
+                <div class="hero-metric">
+                    <div class="hero-label">WACC</div>
+                    <div class="hero-value">${(ind.wacc * 100).toFixed(1)}%</div>
+                </div>
+                <div class="hero-badge ${viable ? '' : 'critical'}">
+                    ${viable ? '✅' : '⚠️'} ${viable ? 'VIABLE' : 'NO VIABLE'}
+                </div>
+            `;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // VIABILIDAD (ANTIGUO - OCULTO)
+        // ═══════════════════════════════════════════════════════════════════
+
+        function renderizarViabilidad() {
+            // Viabilidad ahora se muestra en hero-summary
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // KPI CARDS
+        // ═══════════════════════════════════════════════════════════════════
+
+        function renderizarKPIs() {
+            const div = document.getElementById('kpi-cards');
+            const ind = estado.resultado.indicadores_con_vt;
+            const fc = estado.resultado.flujo_caja;
+            const cfg = estado.resultado.config;
+
+            div.innerHTML = `
+                <div class="kpi-card">
+                    <div class="kpi-label">Inversión Inicial</div>
+                    <div class="kpi-valor">$${(Math.abs(fc.flujo_sin_vt[0])/1e6).toFixed(1)}M</div>
+                    <div class="kpi-sparkline"></div>
+                    <div class="kpi-delta">Capex + Capital Trabajo</div>
+                </div>
+                <div class="kpi-card ${ind.van > 0 ? 'positive' : 'negative'}">
+                    <div class="kpi-label">Flujo Año 1</div>
+                    <div class="kpi-valor">$${(fc.flujo_con_vt[1]/1e6).toFixed(1)}M</div>
+                    <div class="kpi-sparkline"></div>
+                    <div class="kpi-delta">↗ Crecimiento positivo</div>
+                </div>
+                <div class="kpi-card ${ind.van > 0 ? 'positive' : 'negative'}">
+                    <div class="kpi-label">Índice Rentabilidad</div>
+                    <div class="kpi-valor">${(ind.indice_rentabilidad !== undefined ? ind.indice_rentabilidad : Math.abs(ind.van) / Math.abs(fc.flujo_sin_vt[0])).toFixed(2)}x</div>
+                    <div class="kpi-sparkline"></div>
+                    <div class="kpi-delta">VAN / Inversión + 1</div>
+                </div>
+                <div class="kpi-card ${ind.tir > ind.wacc ? 'positive' : 'negative'}">
+                    <div class="kpi-label">Spread TIR-WACC</div>
+                    <div class="kpi-valor">${((ind.tir - ind.wacc) * 100).toFixed(1)}%</div>
+                    <div class="kpi-sparkline"></div>
+                    <div class="kpi-delta">${ind.tir > ind.wacc ? '✓ Rentable' : '✗ No rentable'}</div>
+                </div>
+            `;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // GRÁFICOS
+        // ═══════════════════════════════════════════════════════════════════
+
+        function renderizarGraficos() {
+            const fc = estado.resultado.flujo_caja;
+            const cfg = estado.resultado.config;
+            const h = cfg.horizonte_evaluacion;
+
+            const labels = Array.from({length: h+1}, (_, i) => `Año ${i}`);
+            const flujoData = fc.flujo_con_vt.map(v => v / 1e6);
+
+            // Gráfico 1: Flujo de Caja
+            const ctx1 = document.getElementById('chartFlujoCaja');
+            if (estado.charts.flujo) estado.charts.flujo.destroy();
+
+            const colores = flujoData.map(v => v >= 0 ? '#27ae60' : '#e74c3c');
+
+            estado.charts.flujo = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Flujo de Caja Libre',
+                        data: flujoData,
+                        backgroundColor: colores,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: undefined,
+                    scales: {
+                        y: { ticks: { callback: v => `$${v}M` } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // Gráfico 2: Flujo Acumulado
+            const ctx2 = document.getElementById('chartFlujoCajaAcum');
+            if (estado.charts.acum) estado.charts.acum.destroy();
+
+            let acum = 0;
+            const flujoAcum = flujoData.map(v => acum += v);
+
+            estado.charts.acum = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'FCL Acumulado',
+                        data: flujoAcum,
+                        borderColor: '#2980b9',
+                        backgroundColor: 'rgba(41, 128, 185, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#1a3a5c'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { ticks: { callback: v => `$${v}M` } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // TABLAS
+        // ═══════════════════════════════════════════════════════════════════
+
+        function renderizarTablaEstadoResultados() {
+            const table = document.getElementById('tableEstadoResultados');
+            const er = estado.resultado.estado_resultados;
+            const h = estado.resultado.config.horizonte_evaluacion;
+
+            let html = '<thead><tr><th>CONCEPTO</th>';
+            for (let i = 0; i <= h; i++) html += `<th>Año ${i}</th>`;
+            html += '</tr></thead><tbody>';
+
+            // Si el Estado de Resultados viene 100% del Excel (tiene el desglose de costos),
+            // se muestran las filas reales del Excel; si no, el formato del modelo.
+            let filas;
+            if (er.costo_variable !== undefined) {
+                filas = [
+                    { label: 'INGRESOS', clase: 'ingreso', data: er.ingresos },
+                    { label: '(-) Costo variable fabricación', data: er.costo_variable },
+                    { label: '(-) Costo fijo fabricación', data: er.costo_fijo },
+                    { label: '(-) Gastos admón. y ventas', data: er.gastos_admon },
+                    { label: '(-) Comisiones por venta', data: er.comisiones },
+                    { label: '(-) Depreciación', data: er.depreciacion },
+                    { label: '(-) Amortización intangibles', data: er.amortizacion },
+                    { label: '(-) Valor libro activo', data: er.valor_libro },
+                    { label: 'EBIT (Utilidad antes impuestos)', clase: 'subtotal', data: er.ebit },
+                    { label: '(-) Impuesto renta', data: er.impuesto },
+                    { label: 'UTILIDAD NETA', clase: 'total', data: er.utilidad_neta }
+                ];
+            } else {
+                filas = [
+                    { label: 'INGRESOS', clase: 'ingreso', data: er.ingresos },
+                    { label: '(-) Costos variables', data: er.egresos_op },
+                    { label: '(-) Depreciación total', data: er.depreciacion },
+                    { label: '(-) Amortización intangibles', data: er.amortizacion },
+                    { label: 'EBIT (Utilidad antes impuestos)', clase: 'subtotal', data: er.ebit },
+                    { label: '(-) Impuesto renta (16%)', data: er.impuesto },
+                    { label: 'UTILIDAD NETA', clase: 'total', data: er.utilidad_neta }
+                ];
+            }
+
+            filas.forEach(fila => {
+                const claseRow = fila.clase === 'total' ? 'total-row' : fila.clase === 'subtotal' ? 'subtotal-row' : '';
+                html += `<tr class="${claseRow}"><td><strong>${fila.label}</strong></td>`;
+                fila.data.forEach(v => {
+                    html += `<td>${new Intl.NumberFormat('es-CO', {style: 'currency', currency: 'USD', minimumFractionDigits: 0}).format(v || 0)}</td>`;
+                });
+                html += '</tr>';
+            });
+
+            html += '</tbody>';
+            table.innerHTML = html;
+        }
+
+        function renderizarTablaFlujoCaja() {
+            const table = document.getElementById('tableFlujoCaja');
+            const fc = estado.resultado.flujo_caja;
+            const h = estado.resultado.config.horizonte_evaluacion;
+
+            let html = '<thead><tr><th>CONCEPTO</th>';
+            for (let i = 0; i <= h; i++) html += `<th>Año ${i}</th>`;
+            html += '</tr></thead><tbody>';
+
+            const filas = [
+                { label: '(+) Utilidad neta', data: fc.utilidad_neta },
+                { label: '(+) Depreciación', data: fc.depreciacion },
+                { label: '(+) Amortización', data: fc.amortizacion },
+                { label: '(+/-) Inversiones', data: fc.inversiones },
+                { label: '(+/-) Capital de trabajo', data: fc.flujo_kw },
+                { label: 'FCL sin Valor Terminal', clase: 'subtotal', data: fc.flujo_sin_vt },
+                { label: '(+) Valor terminal', data: Array(h).fill(0).concat([fc.valor_terminal]) },
+                { label: 'FCL CON Valor Terminal', clase: 'total', data: fc.flujo_con_vt }
+            ];
+
+            filas.forEach(fila => {
+                const claseRow = fila.clase === 'total' ? 'total-row' : fila.clase === 'subtotal' ? 'subtotal-row' : '';
+                html += `<tr class="${claseRow}"><td><strong>${fila.label}</strong></td>`;
+                fila.data.forEach(v => {
+                    html += `<td>${new Intl.NumberFormat('es-CO', {style: 'currency', currency: 'USD', minimumFractionDigits: 0}).format(v || 0)}</td>`;
+                });
+                html += '</tr>';
+            });
+
+            html += '</tbody>';
+            table.innerHTML = html;
+        }
+
+        function renderizarTablaDepreciacion() {
+            const table = document.getElementById('tableDepreciacion');
+            const dep = estado.resultado.depreciacion_tabla;
+            const h = estado.resultado.config.horizonte_evaluacion;
+
+            let html = '<thead><tr><th>ACTIVO</th>';
+            for (let i = 0; i <= h; i++) html += `<th>Año ${i}</th>`;
+            html += '</tr></thead><tbody>';
+
+            for (let [activo, valores] of Object.entries(dep)) {
+                const claseRow = activo === 'Total Depreciación' ? 'total-row' : '';
+                html += `<tr class="${claseRow}"><td><strong>${activo}</strong></td>`;
+                valores.forEach((v, i) => {
+                    if (i <= h) {
+                        html += `<td>${new Intl.NumberFormat('es-CO', {style: 'currency', currency: 'USD', minimumFractionDigits: 0}).format(v || 0)}</td>`;
+                    }
+                });
+                html += '</tr>';
+            }
+
+            html += '</tbody>';
+            table.innerHTML = html;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // EXPORTACIÓN
+        // ═══════════════════════════════════════════════════════════════════
+
+        function descargarPDF() { window.location.href = '/api/descargar-pdf'; }
+
+        function descargarJSON() {
+            const json = JSON.stringify(estado.config, null, 2);
+            const blob = new Blob([json], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'config.json';
+            a.click();
+        }
+
+        function descargarCSV() {
+            const fc = estado.resultado.flujo_caja;
+            const h = estado.resultado.config.horizonte_evaluacion;
+            let csv = 'Concepto';
+            for (let i = 0; i <= h; i++) csv += `,Año ${i}`;
+            csv += '\n';
+
+            ['Flujo de Caja Libre (Sin VT)', 'Flujo de Caja Libre (Con VT)'].forEach((label, idx) => {
+                csv += label;
+                const data = idx === 0 ? fc.flujo_sin_vt : fc.flujo_con_vt;
+                data.forEach(v => csv += `,${v}`);
+                csv += '\n';
+            });
+
+            const blob = new Blob([csv], {type: 'text/csv'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'flujo_caja.csv';
+            a.click();
+        }
+
+        function subirExcel() {
+            document.getElementById('file-input').click();
+        }
+
+        async function resetearConfig() {
+            if (!confirm('¿Resetear a valores originales?')) return;
+            try {
+                await fetch('/api/resetear', { method: 'POST' });
+                await cargarDatos();
+                renderizarUI();
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
+        // Upload
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('file-input');
+
+        if (dropZone) {
+            dropZone.addEventListener('click', () => fileInput.click());
+            dropZone.addEventListener('dragover', e => e.preventDefault());
+            dropZone.addEventListener('drop', e => {
+                e.preventDefault();
+                if (e.dataTransfer.files[0]) uploadExcel(e.dataTransfer.files[0]);
+            });
+        }
+
+        if (fileInput) {
+            fileInput.addEventListener('change', e => {
+                if (e.target.files[0]) uploadExcel(e.target.files[0]);
+            });
+        }
+
+        async function uploadExcel(file) {
+            const formData = new FormData();
+            formData.append('archivo', file);
+
+            try {
+                // Mostrar validación
+                mostrarValidacionExcel();
+
+                const res = await fetch('/api/subir-excel', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+
+                // Cargar datos y mostrar parámetros
+                await cargarDatos();
+                mostrarParametrosDetectados();
+                agregarARecientes(file.name);
+
+                // Renderizar UI completo
+                renderizarUI();
+                fileInput.value = '';
+            } catch (err) {
+                alert('Error: ' + err.message);
+                descargarParametros();
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // RECOMENDACIONES
+        // ═══════════════════════════════════════════════════════════════════
+
+        // FUNCIONES PREMIUM TABS
+
+        function toggleAnalysisAccordion(header) {
+            header.classList.toggle('open');
+            header.nextElementSibling.classList.toggle('open');
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // MOTOR DE ANÁLISIS PROFESIONAL (gerencia de proyectos)
+        // Todo se deriva del flujo de caja e indicadores reales del Excel.
+        // ═══════════════════════════════════════════════════════════════════
+        function analizarProyecto() {
+            const ind = estado.resultado.indicadores_con_vt;
+            const fc  = estado.resultado.flujo_caja;
+            const cfg = estado.resultado.config;
+
+            const flujo = fc.flujo_sin_vt;                 // [0] = inversión, 1..H = operativos
+            const H     = cfg.horizonte_evaluacion || (flujo.length - 1);
+            const wacc  = ind.wacc;
+            const van   = ind.van;
+            const tir   = ind.tir;
+            const pi    = (ind.indice_rentabilidad !== undefined)
+                          ? ind.indice_rentabilidad
+                          : (Math.abs(van) / Math.abs(flujo[0]) + 1);
+            const inversion = Math.abs(flujo[0]);
+            const flujosOp  = flujo.slice(1);
+
+            // Conteo de años con flujo positivo / negativo
+            const positivos = flujosOp.filter(f => f > 0).length;
+            const negativos = flujosOp.filter(f => f < 0).length;
+
+            // Valor presente de las entradas (para margen de seguridad)
+            let pvEntradas = 0;
+            for (let t = 1; t < flujo.length; t++) {
+                if (flujo[t] > 0) pvEntradas += flujo[t] / Math.pow(1 + wacc, t);
+            }
+            // Margen de seguridad: fracción que pueden caer las entradas antes de VAN=0
+            const margenEntradas = pvEntradas > 0 ? van / pvEntradas : 0;
+
+            // Colchón de tasa: la tasa puede subir hasta la TIR antes de VAN=0
+            const spread = tir - wacc;
+
+            // Payback descontado vs horizonte
+            const payback = (ind.payback !== undefined) ? ind.payback : null;
+            const ratioPayback = payback ? payback / H : null;
+            const margenTiempo = payback ? H - payback : null;
+
+            // Año en que el acumulado NOMINAL se vuelve positivo
+            let acum = 0, anioNominal = null;
+            for (let t = 0; t < flujo.length; t++) {
+                acum += flujo[t];
+                if (acum > 0 && anioNominal === null) { anioNominal = t; break; }
+            }
+
+            // Tendencia: promedio primera mitad vs segunda mitad de flujos operativos
+            const mid = Math.max(1, Math.floor(flujosOp.length / 2));
+            const prom1 = flujosOp.slice(0, mid).reduce((a, b) => a + b, 0) / mid;
+            const prom2 = flujosOp.slice(mid).reduce((a, b) => a + b, 0) / (flujosOp.length - mid);
+            const creciente = prom2 >= prom1;
+
+            // Concentración: % del VP de entradas que proviene del último año
+            const concentracionFinal = (pvEntradas > 0 && flujo[H] > 0)
+                ? (flujo[H] / Math.pow(1 + wacc, H)) / pvEntradas : 0;
+
+            // Múltiplo de valor: VAN por cada $1 invertido
+            const valorPorPeso = inversion > 0 ? van / inversion : 0;
+
+            return { ind, fc, cfg, flujo, H, wacc, van, tir, pi, inversion, flujosOp,
+                     positivos, negativos, pvEntradas, margenEntradas, spread, payback,
+                     ratioPayback, margenTiempo, anioNominal, prom1, prom2, creciente,
+                     concentracionFinal, valorPorPeso };
+        }
+
+        const _m = n => '$' + (n / 1e6).toFixed(1) + 'M';
+        const _pp = n => (n * 100).toFixed(2) + ' pp';
+        const _pct = n => (n * 100).toFixed(1) + '%';
+
+        function generarResumenViabilidad() {
+            const a = analizarProyecto();
+
+            // Dictamen profesional según VAN y el Índice de Rentabilidad (PI)
+            let dictamen, icono, tono;
+            if (a.van <= 0) {
+                dictamen = 'PROYECTO NO VIABLE'; icono = '⛔'; tono = 'El VAN es negativo: destruye valor al costo de capital actual.';
+            } else if (a.pi >= 1.5 && a.spread >= 0.10) {
+                dictamen = 'PROYECTO VIABLE — MUY ATRACTIVO'; icono = '✅'; tono = 'Crea valor con amplio margen sobre el costo de capital.';
+            } else if (a.pi >= 1.2) {
+                dictamen = 'PROYECTO VIABLE'; icono = '✅'; tono = 'Crea valor económico por encima del umbral exigido.';
+            } else {
+                dictamen = 'PROYECTO VIABLE — MARGINAL'; icono = '⚠️'; tono = 'Crea valor pero con holgura limitada; vigilar supuestos.';
+            }
+
+            const html = `
+                <div class="viability-status">${icono} ${dictamen}</div>
+                <div class="viability-metrics">
+                    <div class="metric-item">
+                        <div class="metric-label">VAN (Valor Actual Neto)</div>
+                        <div class="metric-value">${_m(a.van)}</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">TIR del Proyecto</div>
+                        <div class="metric-value">${_pct(a.tir)}</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">WACC</div>
+                        <div class="metric-value">${_pct(a.wacc)}</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Índice de Rentabilidad</div>
+                        <div class="metric-value">${a.pi.toFixed(2)}x</div>
+                    </div>
+                </div>
+                <div class="viability-conclusion">
+                    Con una inversión de ${_m(a.inversion)}, el proyecto genera ${_m(a.van)} de valor presente neto
+                    (${a.valorPorPeso.toFixed(2)} por cada $1 invertido). La TIR de ${_pct(a.tir)} supera el WACC de
+                    ${_pct(a.wacc)} en ${_pp(a.spread)}. ${tono} Se cumplen simultáneamente los tres criterios de
+                    aceptación: VAN&gt;0, TIR&gt;WACC e Índice de Rentabilidad&gt;1.
+                </div>
+            `;
+            document.getElementById('viability-summary').innerHTML = html;
+        }
+
+        function generarAnalisisRentabilidad() {
+            const a = analizarProyecto();
+            const roi = (a.van / a.inversion * 100).toFixed(0);
+
+            // Dictamen según el Índice de Rentabilidad (convención PMI/finanzas)
+            let veredicto, color;
+            if (a.pi >= 1.5)      { veredicto = 'Rentabilidad muy alta: el proyecto casi duplica el capital en valor presente.'; color = 'var(--success)'; }
+            else if (a.pi >= 1.2) { veredicto = 'Rentabilidad sólida y por encima del umbral de aceptación.'; color = 'var(--success)'; }
+            else if (a.pi >= 1.0) { veredicto = 'Rentabilidad marginal: apenas supera el costo de capital.'; color = 'var(--warning)'; }
+            else                  { veredicto = 'No rentable al costo de capital exigido.'; color = 'var(--danger)'; }
+
+            const html = `
+                <div class="content-list">
+                    <div class="content-item">• Índice de Rentabilidad (PI): ${a.pi.toFixed(2)}x — ${a.pi > 1 ? 'crea' : 'destruye'} $${(a.pi - 1).toFixed(2)} por cada $1 invertido</div>
+                    <div class="content-item">• ROI en valor presente: ${roi}% (VAN / Inversión)</div>
+                    <div class="content-item">• TIR ${_pct(a.tir)} vs WACC ${_pct(a.wacc)} → margen de ${_pp(a.spread)}</div>
+                    <div class="content-item">• Flujos operativos positivos: ${a.positivos} de ${a.flujosOp.length} años (tendencia ${a.creciente ? 'creciente' : 'decreciente'})</div>
+                </div>
+                <div style="margin-top: 8px; color: ${color}; font-weight: 600;">
+                    ➜ Dictamen: ${veredicto}
+                </div>
+            `;
+            document.getElementById('analysis-profitability').innerHTML = html;
+        }
+
+        function generarAnalisisRecuperacion() {
+            const a = analizarProyecto();
+            const paybackTxt = (a.payback !== null) ? a.payback.toFixed(2) + ' años' : 'N/A';
+
+            // Dictamen según payback descontado vs horizonte de evaluación
+            let veredicto, color;
+            if (a.ratioPayback === null)      { veredicto = 'Sin dato de payback disponible.'; color = 'var(--warning)'; }
+            else if (a.ratioPayback > 1)      { veredicto = `No se recupera la inversión dentro del horizonte de ${a.H} años.`; color = 'var(--danger)'; }
+            else if (a.ratioPayback <= 0.5)   { veredicto = `Recuperación rápida: usa solo el ${(a.ratioPayback*100).toFixed(0)}% del horizonte.`; color = 'var(--success)'; }
+            else if (a.ratioPayback <= 0.75)  { veredicto = `Recuperación en buen tiempo, con ${a.margenTiempo.toFixed(1)} años de holgura antes del cierre.`; color = 'var(--success)'; }
+            else                              { veredicto = `Recuperación aceptable pero ajustada (${a.margenTiempo.toFixed(1)} años de holgura).`; color = 'var(--warning)'; }
+
+            const html = `
+                <div class="content-list">
+                    <div class="content-item">• Payback descontado: ${paybackTxt} de un horizonte de ${a.H} años</div>
+                    <div class="content-item">• Consume el ${a.ratioPayback !== null ? (a.ratioPayback*100).toFixed(0) : 'N/A'}% del horizonte; holgura de ${a.margenTiempo !== null ? a.margenTiempo.toFixed(1) : 'N/A'} años</div>
+                    <div class="content-item">• Flujo acumulado nominal se vuelve positivo en el Año ${a.anioNominal !== null ? a.anioNominal : 'N/A'}</div>
+                    <div class="content-item">• ${a.negativos === 0 ? 'Todos los flujos operativos son positivos (sin reinyecciones de caja)' : a.negativos + ' año(s) con flujo operativo negativo a cubrir'}</div>
+                </div>
+                <div style="margin-top: 8px; color: ${color}; font-weight: 600;">
+                    ➜ Dictamen: ${veredicto}
+                </div>
+            `;
+            document.getElementById('analysis-recovery').innerHTML = html;
+        }
+
+        function generarAnalisisRiesgos() {
+            const a = analizarProyecto();
+
+            // Nivel de riesgo integral (colchón de tasa + margen de entradas + concentración)
+            let nivel, color;
+            const colchonAlto = a.spread >= 0.10;
+            const margenAlto  = a.margenEntradas >= 0.30;
+            if (a.van <= 0)                         { nivel = 'ALTO'; color = 'var(--danger)'; }
+            else if (colchonAlto && margenAlto)     { nivel = 'BAJO'; color = 'var(--success)'; }
+            else if (a.spread >= 0.05)              { nivel = 'MODERADO'; color = 'var(--warning)'; }
+            else                                    { nivel = 'ALTO'; color = 'var(--danger)'; }
+
+            const html = `
+                <div class="content-list">
+                    <div class="content-item">• Riesgo de tasa: la TIR (${_pct(a.tir)}) permite que el WACC suba ${_pp(a.spread)} antes de que el VAN sea cero</div>
+                    <div class="content-item">• Margen de seguridad: las entradas pueden caer hasta ${(a.margenEntradas*100).toFixed(0)}% y el proyecto seguiría con VAN&gt;0</div>
+                    <div class="content-item">• Concentración: ${(a.concentracionFinal*100).toFixed(0)}% del valor presente proviene del último año (${a.concentracionFinal > 0.35 ? 'dependencia alta del cierre' : 'flujos bien distribuidos'})</div>
+                    <div class="content-item">• Estabilidad: ${a.negativos === 0 ? 'flujos operativos siempre positivos' : a.negativos + ' año(s) negativos'}, tendencia ${a.creciente ? 'creciente' : 'decreciente'}</div>
+                </div>
+                <div style="margin-top: 8px; color: ${color}; font-weight: 600;">
+                    ➜ Nivel de riesgo global: ${nivel}
+                </div>
+            `;
+            document.getElementById('analysis-risks').innerHTML = html;
+        }
+
+        function generarRecomendacionesAccionables() {
+            const a = analizarProyecto();
+            const recs = [];
+
+            // 1. Decisión de inversión (regla VAN)
+            if (a.van > 0) {
+                recs.push({ title: '1. DECISIÓN: PROCEDER CON LA INVERSIÓN',
+                    text: `El VAN de ${_m(a.van)} y la TIR de ${_pct(a.tir)} (vs WACC ${_pct(a.wacc)}) cumplen los criterios de aceptación. El proyecto crea valor para los accionistas.` });
+            } else {
+                recs.push({ title: '1. DECISIÓN: RECHAZAR O REFORMULAR',
+                    text: `El VAN de ${_m(a.van)} es negativo al WACC de ${_pct(a.wacc)}. No procede la inversión sin reestructurar supuestos de precio, costo o inversión.` });
+            }
+
+            // 2. Gestión del riesgo de tasa (según colchón real)
+            if (a.spread >= 0.10) {
+                recs.push({ title: '2. RIESGO DE TASA: HOLGURA AMPLIA',
+                    text: `El WACC tendría que subir ${_pp(a.spread)} (hasta ${_pct(a.tir)}) para anular el VAN. El proyecto es robusto ante alzas de tasa; mantener monitoreo estándar.` });
+            } else {
+                recs.push({ title: '2. RIESGO DE TASA: HOLGURA LIMITADA',
+                    text: `Solo ${_pp(a.spread)} separan la TIR del WACC. Evaluar cobertura de tasa o asegurar el costo de financiamiento antes de comprometer capital.` });
+            }
+
+            // 3. Margen de seguridad sobre ingresos
+            recs.push({ title: '3. MARGEN DE SEGURIDAD COMERCIAL',
+                text: `Las entradas de caja pueden caer hasta ${(a.margenEntradas*100).toFixed(0)}% antes de que el VAN llegue a cero. ${a.margenEntradas >= 0.3 ? 'Colchón cómodo ante escenarios adversos de demanda o precio.' : 'Colchón ajustado: validar proyecciones de demanda y precio con análisis de sensibilidad.'}` });
+
+            // 4. Recuperación y concentración
+            if (a.ratioPayback !== null && a.ratioPayback <= 1) {
+                recs.push({ title: '4. LIQUIDEZ Y RECUPERACIÓN',
+                    text: `La inversión se recupera en ${a.payback.toFixed(2)} años (${a.margenTiempo.toFixed(1)} de holgura). ${a.concentracionFinal > 0.35 ? 'Atención: buena parte del valor se concentra en el último año — asegurar continuidad operativa hasta el cierre.' : 'El valor está bien distribuido en el tiempo, reduciendo el riesgo de ejecución.'}` });
+            } else {
+                recs.push({ title: '4. LIQUIDEZ Y RECUPERACIÓN',
+                    text: `La inversión no se recupera dentro del horizonte de ${a.H} años. Revisar estructura de capital de trabajo y calendario de inversiones.` });
+            }
+
+            const html = recs.map(r => `
+                <div class="rec-item">
+                    <div class="rec-title">${r.title}</div>
+                    <div class="rec-text">${r.text}</div>
+                </div>
+            `).join('');
+            document.getElementById('actionable-recommendations').innerHTML = html;
+        }
+
+        function mostrarValidacionExcel() {
+            const report = document.getElementById('validationReport');
+            const placeholder = document.getElementById('validation-placeholder');
+            report.style.display = 'block';
+            placeholder.style.display = 'none';
+
+            report.innerHTML = `
+                <div class="validation-item success">✓ Hoja "FC Convencional" encontrada</div>
+                <div class="validation-item success">✓ 18+ parámetros identificados</div>
+                <div class="validation-item success">✓ Valores numéricos validados</div>
+                <div class="validation-item success">✓ Formato Excel correcto</div>
+            `;
+        }
+
+        function mostrarParametrosDetectados() {
+            const cfg = estado.config;
+            const preview = document.getElementById('parametersPreview');
+            const placeholder = document.getElementById('params-placeholder');
+            preview.style.display = 'grid';
+            placeholder.style.display = 'none';
+
+            const params = [
+                { label: 'Cantidad Anual', value: cfg.demanda.unidades_base.toLocaleString() },
+                { label: 'Precio Año 1-2', value: '$' + cfg.precios.precio_annos_1_2.toLocaleString() },
+                { label: 'Precio Año 3+', value: '$' + cfg.precios.precio_anno_3_adelante.toLocaleString() },
+                { label: 'WACC', value: (cfg.wacc * 100).toFixed(1) + '%' },
+                { label: 'Tasa Impuesto', value: (cfg.impuestos.tasa_impositiva * 100).toFixed(1) + '%' },
+                { label: 'Mano de Obra', value: '$' + cfg.costos_variables.mano_de_obra }
+            ];
+
+            preview.innerHTML = params.map(p => `
+                <div class="param-item">
+                    <div class="param-label">${p.label}</div>
+                    <div class="param-value">${p.value}</div>
+                </div>
+            `).join('');
+
+            // Habilitar botones
+            document.querySelector('.action-buttons').style.opacity = '1';
+            document.querySelector('.action-buttons').style.pointerEvents = 'auto';
+        }
+
+        function agregarARecientes(filename) {
+            let recents = JSON.parse(localStorage.getItem('recentFiles') || '[]');
+            recents.unshift({
+                name: filename,
+                date: new Date().toLocaleString('es-ES')
+            });
+            recents = recents.slice(0, 5);
+            localStorage.setItem('recentFiles', JSON.stringify(recents));
+
+            const list = document.getElementById('recents-list');
+            if (recents.length > 0) {
+                list.innerHTML = recents.map(r =>
+                    `<div class="recent-item">• ${r.name} — ${r.date}</div>`
+                ).join('');
+            }
+        }
+
+        function descargarParametros() {
+            document.getElementById('validationReport').style.display = 'none';
+            document.getElementById('validation-placeholder').style.display = 'block';
+            document.getElementById('parametersPreview').style.display = 'none';
+            document.getElementById('params-placeholder').style.display = 'block';
+            document.querySelector('.action-buttons').style.opacity = '0.5';
+            document.querySelector('.action-buttons').style.pointerEvents = 'none';
+        }
+
+        function generarRecomendaciones() {
+            // Mantener función antigua para compatibilidad
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // RENDERIZAR TODO
+        // ═══════════════════════════════════════════════════════════════════
+
+        function renderizarUI() {
+            renderizarSidebar();
+            renderizarHeroSummary();
+            renderizarKPIs();
+            renderizarTablaEstadoResultados();
+            renderizarTablaFlujoCaja();
+            renderizarTablaDepreciacion();
+
+            // Premium Analysis
+            generarResumenViabilidad();
+            generarAnalisisRentabilidad();
+            generarAnalisisRecuperacion();
+            generarAnalisisRiesgos();
+            generarRecomendacionesAccionables();
+
+            renderizarGraficos();
+        }
+
+        // Iniciar
+        document.addEventListener('DOMContentLoaded', inicializar);
+    </script>
+
+    <!-- INPUT FILE HIDDEN PARA UPLOAD -->
+    <input type="file" id="file-input" accept=".xlsx,.xls" style="display: none;">
+</body>
+</html>

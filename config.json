@@ -1,0 +1,89 @@
+{
+  "empresa": {
+    "nombre": "Limited Group S.A.",
+    "sector": "Manufactura Industrial",
+    "producto": "Bisagras Industriales"
+  },
+  "horizonte_evaluacion": 6,
+  "periodos": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "demanda": {
+    "unidades_base": 50000,
+    "incremento_anno_4": 0.2,
+    "anno_incremento": 4
+  },
+  "precios": {
+    "precio_annos_1_2": 1200.0,
+    "precio_anno_3_adelante": 1600.0,
+    "anno_cambio_precio": 3
+  },
+  "costos_variables": {
+    "mano_de_obra": 25.0,
+    "materiales_base": 35.0,
+    "materiales_importados": 32.0,
+    "costos_indirectos": 5.0,
+    "umbral_importacion_unidades": 55000,
+    "anno_inicio_importacion": 4
+  },
+  "costos_fijos": {
+    "costo_fijo_fabricacion_base": 2000000.0,
+    "incremento_ampliacion": 200000.0,
+    "anno_inicio_incremento": 4,
+    "gastos_admon_ventas_base": 800000.0,
+    "gastos_admon_ventas_ampliados": 820000.0,
+    "anno_inicio_gastos_ampliados": 4,
+    "comision_ventas_pct": 0.02
+  },
+  "inversion_inicial": {
+    "terreno": 12000000,
+    "obras_fisicas": 60000000,
+    "maquinaria_total": 48000000,
+    "maquinaria_1": 10000000,
+    "maquinaria_2": 38000000,
+    "intangibles_total": 2000000,
+    "costo_estudio_viabilidad": 800000,
+    "intangibles_amortizables": 1200000,
+    "total_inversion_base": 122000000,
+    "total_inversion_neta": 121200000
+  },
+  "ampliacion": {
+    "anno": 3,
+    "obras_fisicas_adicionales": 12000000,
+    "maquinaria_adicional": 8000000,
+    "total": 20000000
+  },
+  "reemplazo_maquinaria": {
+    "anno_venta": 4,
+    "anno_compra": 5,
+    "costo_reemplazo": 10000000,
+    "valor_salvamento_maquina_vieja": 2500000,
+    "vida_util_contable_annos": 10,
+    "annos_usados": 4
+  },
+  "depreciacion": {
+    "terreno_annos": 0,
+    "obras_fisicas_annos": 20,
+    "maquinaria_annos": 10,
+    "intangibles_amortizacion_annos": 5
+  },
+  "impuestos": {
+    "tasa_impositiva": 0.16
+  },
+  "wacc": 0.13,
+  "tasa_descuento_nombre": "WACC",
+  "capital_de_trabajo": {
+    "meses_cobertura": 6,
+    "fraccion": 0.5
+  },
+  "valor_salvamento_terminal": {
+    "metodo": "perpetuidad_going_concern",
+    "descripcion": "FCF operativo año 6 / WACC (empresa continúa indefinidamente)"
+  }
+}
