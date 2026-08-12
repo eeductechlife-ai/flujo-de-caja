@@ -977,6 +977,7 @@
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('content').style.display = 'block';
             } catch (err) {
+                if (err.message === 'NO_EXCEL') return;
                 alert('Error: ' + err.message);
             }
         }
@@ -985,19 +986,36 @@
             const resConfig = await fetch('/api/config').then(r => r.json());
             estado.config = resConfig;
 
-            // Cargar resultado - si da 400, mostrar mensaje
             const resResultado = await fetch('/api/resultado');
             if (!resResultado.ok) {
                 const err = await resResultado.json();
+                document.getElementById('loading').style.display = 'block';
                 document.getElementById('loading').innerHTML = `
-                    <div style="text-align: center; padding: 60px 40px; color: #e74c3c;">
-                        <p style="font-size: 32px; margin-bottom: 20px;">📁</p>
-                        <p style="font-size: 18px; font-weight: bold;">Por favor carga un archivo Excel</p>
-                        <p style="font-size: 14px; margin-top: 10px; opacity: 0.9;">${err.error || 'No hay datos disponibles'}</p>
+                    <div style="text-align: center; padding: 60px 40px;">
+                        <p style="font-size: 48px; margin-bottom: 20px;">📁</p>
+                        <p style="font-size: 20px; font-weight: bold; color: var(--text-primary);">Por favor carga un archivo Excel</p>
+                        <p style="font-size: 14px; margin-top: 10px; color: var(--text-secondary);">${err.error || 'No hay datos disponibles'}</p>
+                        <button onclick="subirExcel()" style="
+                            margin-top: 24px;
+                            padding: 14px 32px;
+                            background: linear-gradient(135deg, #2980b9, #1a3a5c);
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            font-size: 16px;
+                            font-weight: 700;
+                            cursor: pointer;
+                            box-shadow: 0 4px 12px rgba(41,128,185,0.3);
+                            transition: transform 0.2s, box-shadow 0.2s;
+                        " onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(41,128,185,0.4)'"
+                           onmouseout="this.style.transform='';this.style.boxShadow='0 4px 12px rgba(41,128,185,0.3)'">
+                            📤 Seleccionar archivo Excel
+                        </button>
+                        <p style="font-size: 12px; margin-top: 12px; color: var(--text-secondary);">Formatos aceptados: .xlsx, .xls</p>
                     </div>
                 `;
                 document.getElementById('content').style.display = 'none';
-                return;
+                throw new Error('NO_EXCEL');
             }
 
             const resResultadoData = await resResultado.json();
@@ -1486,8 +1504,11 @@
             try {
                 await fetch('/api/resetear', { method: 'POST' });
                 await cargarDatos();
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
                 renderizarUI();
             } catch (err) {
+                if (err.message === 'NO_EXCEL') return;
                 alert('Error: ' + err.message);
             }
         }
@@ -1527,6 +1548,10 @@
                 await cargarDatos();
                 mostrarParametrosDetectados();
                 agregarARecientes(file.name);
+
+                // Mostrar dashboard y ocultar pantalla de carga
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
 
                 // Renderizar UI completo
                 renderizarUI();
