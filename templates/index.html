@@ -1062,7 +1062,7 @@
                             Seleccionar archivo
                         </button>
                         <button class="btn btn-secondary" style="width: 100%;" onclick="resetearConfig()">
-                            Restaurar caso base
+                            Restaurar
                         </button>
                     </div>
                 </div>
@@ -1501,9 +1501,10 @@
         }
 
         async function resetearConfig() {
-            if (!confirm('¿Resetear a valores originales?')) return;
+            if (!confirm('¿Restaurar? Se borrarán los datos actuales y podrás subir un nuevo Excel.')) return;
             try {
                 await fetch('/api/resetear', { method: 'POST' });
+                estado.resultado = null;
                 await cargarDatos();
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('content').style.display = 'block';

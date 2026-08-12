@@ -478,11 +478,19 @@ def descargar_html():
 
 @app.route('/api/resetear', methods=['POST'])
 def resetear():
-    """Resetea a valores por defecto."""
+    """Restaura: borra todos los datos cargados. El dashboard vuelve al estado
+    inicial (sin Excel), listo para que el usuario suba un nuevo archivo."""
     try:
+        estado_global['resultado'] = None
+        estado_global['archivo_cargado'] = None
         estado_global['config'] = cargar_config_default()
-        estado_global['resultado'] = ejecutar_modelo('config.json')
-        return jsonify({'ok': True, 'mensaje': 'Reseteado a valores por defecto'})
+        # Eliminar el archivo persistente para que el estado sea 100% limpio
+        if os.path.exists('resultado_excel_cargado.json'):
+            try:
+                os.remove('resultado_excel_cargado.json')
+            except Exception:
+                pass
+        return jsonify({'ok': True, 'mensaje': 'Dashboard restaurado. Sube un nuevo Excel para comenzar.'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
