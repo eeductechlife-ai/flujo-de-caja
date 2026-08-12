@@ -179,10 +179,33 @@ def extraer_flujo_excel(archivo_path: str) -> Dict[str, Any]:
     return resultados
 
 
+def detectar_horizonte(ws) -> int:
+    """Detecta el horizonte del proyecto contando los años en la fila 'Periodo/Año'.
+
+    Retorna el último año (ej: si hay años [0,1,2,...,6], retorna 6).
+    Fallback: 6 años si no se puede detectar.
+    """
+    for row_idx in range(1, 60):
+        clave = ws.cell(row=row_idx, column=1).value
+        if not clave:
+            continue
+        if 'periodo' in str(clave).lower() or 'período' in str(clave).lower():
+            años = []
+            for c in range(2, 30):
+                v = ws.cell(row=row_idx, column=c).value
+                if isinstance(v, (int, float)) and v >= 0:
+                    años.append(int(v))
+                else:
+                    break
+            if años:
+                return max(años)
+    return 6
+
+
 def extraer_estado_flujo_completo(archivo_path: str) -> Dict[str, Any]:
     """
     Extrae el 100% de las filas de datos del Excel (hoja 'FC Convencional')
-    en arrays de 7 elementos alineados a los años 0..6.
+    en arrays de (horizonte+1) elementos alineados a los años 0..H.
 
     Devuelve las tablas completas (estado de resultados y flujo de caja) tal
     como están en el Excel, para que el dashboard NO recalcule nada.
@@ -190,19 +213,22 @@ def extraer_estado_flujo_completo(archivo_path: str) -> Dict[str, Any]:
     wb = openpyxl.load_workbook(archivo_path, data_only=True)
     ws = wb["FC Convencional"] if "FC Convencional" in wb.sheetnames else wb.active
 
-    def fila(n_fila: int, columnas=7) -> list:
-        """Lee `columnas` valores desde la columna B (2) de la fila dada."""
+    horizonte = detectar_horizonte(ws)
+    columnas = horizonte + 1  # Año 0 hasta Año H = H+1 columnas
+
+    def fila(n_fila: int) -> list:
+        """Lee valores desde la columna B (2) de la fila dada, según horizonte."""
         vals = []
         for c in range(2, 2 + columnas):
             v = ws.cell(row=n_fila, column=c).value
             vals.append(float(v) if isinstance(v, (int, float)) else 0.0)
         return vals
 
-    def suma_filas(*filas_n, columnas=7) -> list:
+    def suma_filas(*filas_n) -> list:
         """Suma varias filas elemento a elemento (para inversiones netas)."""
         acum = [0.0] * columnas
         for nf in filas_n:
-            for i, v in enumerate(fila(nf, columnas)):
+            for i, v in enumerate(fila(nf)):
                 acum[i] += v
         return acum
 
@@ -255,6 +281,7 @@ def extraer_estado_flujo_completo(archivo_path: str) -> Dict[str, Any]:
         "depreciacion_tabla": depreciacion_tabla,
         "indicadores": base.get("indicadores", {}),
         "flujo_caja_linea": fila(67),  # compatibilidad con extraer_flujo_excel
+        "horizonte_evaluacion": horizonte,
     }
 
 

@@ -317,6 +317,16 @@ def subir_excel():
         if flujo_excel and flujo_excel.get('flujo_caja'):
             print(f"✅ Flujo de caja extraído del Excel: {len(flujo_excel['flujo_caja'])} períodos")
 
+            # 🔧 100% DESDE EXCEL: aplicar horizonte del Excel al config antes de ejecutar modelo
+            horizonte_excel = completo.get('horizonte_evaluacion', 6)
+            with open('config.json', 'r', encoding='utf-8') as f:
+                _cfg = json.load(f)
+            _cfg['horizonte_evaluacion'] = horizonte_excel
+            with open('config.json', 'w', encoding='utf-8') as f:
+                json.dump(_cfg, f, indent=2, ensure_ascii=False)
+            estado_global['config'] = _cfg
+            print(f"✅ Horizonte detectado del Excel: {horizonte_excel} años")
+
             # 🔧 100% DESDE EXCEL: ejecutar modelo SOLO para la estructura auxiliar
             # (tabla de depreciación por activo, que suma al total del Excel) y config;
             # TODAS las tablas visibles (estado de resultados y flujo de caja) se
