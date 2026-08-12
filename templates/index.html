@@ -845,6 +845,7 @@
     </style>
 </head>
 <body>
+    <input type="file" id="file-input" accept=".xlsx,.xls" style="display: none;">
     <div class="header">
         <div>
             <h1>💰 Flujo de Caja Dashboard</h1>
@@ -1536,29 +1537,46 @@
             const formData = new FormData();
             formData.append('archivo', file);
 
-            try {
-                // Mostrar validación
-                mostrarValidacionExcel();
+            const loadingEl = document.getElementById('loading');
+            loadingEl.style.display = 'block';
+            loadingEl.innerHTML = `
+                <div style="text-align:center; padding:60px 40px;">
+                    <div style="font-size:48px; margin-bottom:16px;">⏳</div>
+                    <p style="font-size:18px; font-weight:bold; color:var(--text-primary);">Procesando "${file.name}"...</p>
+                    <p style="font-size:13px; margin-top:8px; color:var(--text-secondary);">Extrayendo datos del Excel</p>
+                </div>`;
+            document.getElementById('content').style.display = 'none';
 
+            try {
                 const res = await fetch('/api/subir-excel', { method: 'POST', body: formData });
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error);
+                if (!res.ok) throw new Error(data.error || 'Error subiendo Excel');
 
-                // Cargar datos y mostrar parámetros
                 await cargarDatos();
-                mostrarParametrosDetectados();
-                agregarARecientes(file.name);
 
-                // Mostrar dashboard y ocultar pantalla de carga
-                document.getElementById('loading').style.display = 'none';
+                loadingEl.style.display = 'none';
                 document.getElementById('content').style.display = 'block';
-
-                // Renderizar UI completo
                 renderizarUI();
                 fileInput.value = '';
             } catch (err) {
-                alert('Error: ' + err.message);
-                descargarParametros();
+                if (err.message === 'NO_EXCEL') return;
+                loadingEl.style.display = 'block';
+                loadingEl.innerHTML = `
+                    <div style="text-align:center; padding:60px 40px;">
+                        <div style="font-size:48px; margin-bottom:16px;">❌</div>
+                        <p style="font-size:18px; font-weight:bold; color:var(--critical);">Error procesando el Excel</p>
+                        <p style="font-size:13px; margin-top:8px; color:var(--text-secondary);">${err.message}</p>
+                        <button onclick="subirExcel()" style="
+                            margin-top:24px; padding:14px 32px;
+                            background:linear-gradient(135deg,#2980b9,#1a3a5c);
+                            color:white; border:none; border-radius:8px;
+                            font-size:16px; font-weight:700; cursor:pointer;
+                            box-shadow:0 4px 12px rgba(41,128,185,0.3);">
+                            📤 Intentar de nuevo
+                        </button>
+                    </div>`;
+                document.getElementById('content').style.display = 'none';
+                fileInput.value = '';
             }
         }
 
@@ -1809,74 +1827,6 @@
             document.getElementById('actionable-recommendations').innerHTML = html;
         }
 
-        function mostrarValidacionExcel() {
-            const report = document.getElementById('validationReport');
-            const placeholder = document.getElementById('validation-placeholder');
-            report.style.display = 'block';
-            placeholder.style.display = 'none';
-
-            report.innerHTML = `
-                <div class="validation-item success">✓ Hoja "FC Convencional" encontrada</div>
-                <div class="validation-item success">✓ 18+ parámetros identificados</div>
-                <div class="validation-item success">✓ Valores numéricos validados</div>
-                <div class="validation-item success">✓ Formato Excel correcto</div>
-            `;
-        }
-
-        function mostrarParametrosDetectados() {
-            const cfg = estado.config;
-            const preview = document.getElementById('parametersPreview');
-            const placeholder = document.getElementById('params-placeholder');
-            preview.style.display = 'grid';
-            placeholder.style.display = 'none';
-
-            const params = [
-                { label: 'Cantidad Anual', value: cfg.demanda.unidades_base.toLocaleString() },
-                { label: 'Precio Año 1-2', value: '$' + cfg.precios.precio_annos_1_2.toLocaleString() },
-                { label: 'Precio Año 3+', value: '$' + cfg.precios.precio_anno_3_adelante.toLocaleString() },
-                { label: 'WACC', value: (cfg.wacc * 100).toFixed(1) + '%' },
-                { label: 'Tasa Impuesto', value: (cfg.impuestos.tasa_impositiva * 100).toFixed(1) + '%' },
-                { label: 'Mano de Obra', value: '$' + cfg.costos_variables.mano_de_obra }
-            ];
-
-            preview.innerHTML = params.map(p => `
-                <div class="param-item">
-                    <div class="param-label">${p.label}</div>
-                    <div class="param-value">${p.value}</div>
-                </div>
-            `).join('');
-
-            // Habilitar botones
-            document.querySelector('.action-buttons').style.opacity = '1';
-            document.querySelector('.action-buttons').style.pointerEvents = 'auto';
-        }
-
-        function agregarARecientes(filename) {
-            let recents = JSON.parse(localStorage.getItem('recentFiles') || '[]');
-            recents.unshift({
-                name: filename,
-                date: new Date().toLocaleString('es-ES')
-            });
-            recents = recents.slice(0, 5);
-            localStorage.setItem('recentFiles', JSON.stringify(recents));
-
-            const list = document.getElementById('recents-list');
-            if (recents.length > 0) {
-                list.innerHTML = recents.map(r =>
-                    `<div class="recent-item">• ${r.name} — ${r.date}</div>`
-                ).join('');
-            }
-        }
-
-        function descargarParametros() {
-            document.getElementById('validationReport').style.display = 'none';
-            document.getElementById('validation-placeholder').style.display = 'block';
-            document.getElementById('parametersPreview').style.display = 'none';
-            document.getElementById('params-placeholder').style.display = 'block';
-            document.querySelector('.action-buttons').style.opacity = '0.5';
-            document.querySelector('.action-buttons').style.pointerEvents = 'none';
-        }
-
         function generarRecomendaciones() {
             // Mantener función antigua para compatibilidad
         }
@@ -1907,7 +1857,5 @@
         document.addEventListener('DOMContentLoaded', inicializar);
     </script>
 
-    <!-- INPUT FILE HIDDEN PARA UPLOAD -->
-    <input type="file" id="file-input" accept=".xlsx,.xls" style="display: none;">
 </body>
 </html>
