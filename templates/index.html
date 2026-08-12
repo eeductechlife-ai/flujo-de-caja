@@ -90,6 +90,22 @@
         }
         .header p { font-size: 12px; opacity: 0.9; }
 
+        /* Chip del Excel activo en el header */
+        .excel-chip {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: rgba(255,255,255,0.12); color: white;
+            padding: 8px 14px; border-radius: 20px;
+            font-size: 12px; font-weight: 600;
+            max-width: 320px;
+            border: 1px solid rgba(255,255,255,0.15);
+            transition: background 0.2s;
+        }
+        .excel-chip .chip-icon { font-size: 14px; line-height: 1; }
+        .excel-chip .chip-text {
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .excel-chip.active { background: rgba(76, 188, 107, 0.25); border-color: rgba(76, 188, 107, 0.4); }
+
         .tabs {
             display: flex;
             gap: 0;
@@ -490,6 +506,160 @@
 
         .loading { display: none; text-align: center; padding: 40px; }
 
+        /* ═══════════ TOAST NOTIFICATIONS ═══════════ */
+        #toast-container {
+            position: fixed; top: 20px; right: 20px; z-index: 9999;
+            display: flex; flex-direction: column; gap: 10px;
+            max-width: calc(100vw - 40px);
+            pointer-events: none;
+        }
+        .toast {
+            background: var(--card, white);
+            color: var(--text-primary);
+            border-left: 4px solid var(--primary-mid);
+            border-radius: 6px;
+            padding: 14px 18px 14px 16px;
+            min-width: 280px; max-width: 380px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            font-size: 13.5px; line-height: 1.45;
+            display: flex; align-items: flex-start; gap: 12px;
+            transform: translateX(120%);
+            transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+            pointer-events: auto;
+        }
+        .toast.show { transform: translateX(0); }
+        .toast.success { border-left-color: var(--success); }
+        .toast.error   { border-left-color: var(--critical); }
+        .toast.info    { border-left-color: var(--primary-mid); }
+        .toast-icon { font-size: 18px; line-height: 1.2; flex-shrink: 0; }
+        .toast-body { flex: 1; }
+        .toast-title { font-weight: 700; margin-bottom: 2px; color: var(--text-primary); }
+        .toast-text { color: var(--text-secondary); font-size: 12.5px; }
+        .toast-close {
+            background: none; border: none; color: var(--text-secondary);
+            cursor: pointer; padding: 2px 4px; margin-left: 4px;
+            font-size: 18px; line-height: 1; opacity: 0.6;
+        }
+        .toast-close:hover { opacity: 1; }
+        @media (prefers-color-scheme: dark) {
+            .toast { background: #17223a; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        }
+        :root[data-theme="dark"] .toast { background: #17223a; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+
+        /* ═══════════ CONFIRM MODAL ═══════════ */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+            z-index: 10000; display: none;
+            align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            background: var(--card, white); color: var(--text-primary);
+            border-radius: 10px; padding: 24px; max-width: 420px; width: 100%;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+        }
+        .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+        .modal-text { color: var(--text-secondary); font-size: 14px; margin-bottom: 20px; line-height: 1.5; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        .modal-btn {
+            padding: 9px 18px; border-radius: 6px; font-size: 13px; font-weight: 600;
+            cursor: pointer; border: 1px solid var(--gris-linea);
+            background: transparent; color: var(--text-primary);
+            transition: all 0.15s;
+        }
+        .modal-btn:hover { background: var(--shade, rgba(0,0,0,0.04)); }
+        .modal-btn-primary {
+            background: var(--primary-mid); color: white; border-color: var(--primary-mid);
+        }
+        .modal-btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+        @media (prefers-color-scheme: dark) {
+            .modal { background: #17223a; }
+        }
+        :root[data-theme="dark"] .modal { background: #17223a; }
+
+        /* Modal contenido especial para validación */
+        .modal-text { max-height: 60vh; overflow-y: auto; }
+        .val-section {
+            padding: 10px 0; border-bottom: 1px solid var(--gris-linea);
+            font-size: 13px;
+        }
+        .val-section:last-child { border-bottom: none; }
+        .val-label {
+            font-size: 11px; font-weight: 700; color: var(--text-secondary);
+            text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;
+        }
+        .val-value { font-size: 14px; color: var(--text-primary); font-weight: 600; }
+        .val-list { list-style: none; padding: 0; margin: 6px 0 0 0; }
+        .val-list li {
+            padding: 4px 8px; margin-bottom: 3px;
+            background: var(--gris-bg); border-radius: 4px;
+            font-size: 12.5px; font-family: 'Menlo', monospace;
+        }
+        .val-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+        .pill {
+            display: inline-block; padding: 3px 8px; border-radius: 10px;
+            font-size: 10px; font-weight: 700; letter-spacing: 0.03em;
+        }
+        .pill.ok { background: #d4edda; color: #155724; }
+        .pill.warn { background: #fff3cd; color: #856404; }
+        .val-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding-top: 12px; }
+        .val-summary div {
+            padding: 8px 10px; background: var(--gris-bg); border-radius: 6px;
+            font-size: 12px;
+        }
+        .val-key { color: var(--text-secondary); font-size: 11px; }
+        @media (prefers-color-scheme: dark) {
+            .pill.ok { background: rgba(76, 188, 107, 0.2); color: #92e6a8; }
+            .pill.warn { background: rgba(230, 180, 92, 0.2); color: #ffcc80; }
+        }
+        :root[data-theme="dark"] .pill.ok { background: rgba(76, 188, 107, 0.2); color: #92e6a8; }
+        :root[data-theme="dark"] .pill.warn { background: rgba(230, 180, 92, 0.2); color: #ffcc80; }
+
+        /* ═══════════ ANÁLISIS DE SENSIBILIDAD ═══════════ */
+        .sensibilidad-container {
+            height: auto !important;
+            min-height: 420px;
+            padding-bottom: 24px;
+            overflow: visible;
+        }
+        .sensibilidad-container canvas { max-height: 240px; }
+        .sens-header { margin-bottom: 12px; }
+        .sens-subtitle {
+            font-size: 11.5px; color: var(--text-secondary);
+            font-weight: 400; font-style: italic;
+        }
+        .sens-controls {
+            margin-top: 14px; padding-top: 14px;
+            border-top: 1px solid var(--gris-linea);
+            display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center;
+        }
+        .sens-label {
+            display: flex; align-items: center; gap: 10px;
+            font-size: 12px; color: var(--text-primary); font-weight: 600;
+        }
+        .sens-slider {
+            flex: 1; min-width: 120px; max-width: 240px;
+            accent-color: var(--primary-mid);
+        }
+        .sens-value {
+            font-family: 'Menlo', monospace; font-size: 12.5px; font-weight: 700;
+            color: var(--primary-mid); min-width: 60px; text-align: right;
+        }
+        .sens-result {
+            font-size: 12px; color: var(--text-primary); text-align: right;
+        }
+        .sens-result b {
+            font-family: 'Menlo', monospace; font-size: 14px; color: var(--primary-dark);
+        }
+        .sens-delta { display: block; font-size: 10.5px; margin-top: 2px; }
+        .sens-delta.positive { color: var(--success); }
+        .sens-delta.negative { color: var(--critical); }
+        @media (max-width: 640px) {
+            .sens-controls { grid-template-columns: 1fr; }
+            .sens-result { text-align: left; }
+        }
+
         /* Contenedor con scroll horizontal para tablas anchas (móvil/tablet) */
         .table-wrap {
             overflow-x: auto;
@@ -846,12 +1016,30 @@
 </head>
 <body>
     <input type="file" id="file-input" accept=".xlsx,.xls" style="display: none;">
+
+    <!-- Toast notifications container -->
+    <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- Confirm modal (reemplaza confirm() bloqueante) -->
+    <div id="modal-overlay" class="modal-overlay" role="dialog" aria-modal="true">
+        <div class="modal">
+            <div class="modal-title" id="modal-title">Confirmar acción</div>
+            <div class="modal-text" id="modal-text"></div>
+            <div class="modal-actions">
+                <button class="modal-btn" id="modal-cancel">Cancelar</button>
+                <button class="modal-btn modal-btn-primary" id="modal-ok">Aceptar</button>
+            </div>
+        </div>
+    </div>
     <div class="header">
         <div>
             <h1>💰 Flujo de Caja Dashboard</h1>
             <p>Limited Group S.A. — Evaluación Financiera del Proyecto</p>
         </div>
-        <div id="caso-base" style="color: white; font-size: 12px;">Caso Base</div>
+        <div id="caso-base" class="excel-chip" title="Archivo Excel activo">
+            <span class="chip-icon">📄</span>
+            <span class="chip-text" id="excel-chip-text">Sin Excel cargado</span>
+        </div>
     </div>
 
     <div class="tabs">
@@ -888,6 +1076,24 @@
                     <div class="chart-container">
                         <h3 style="margin-bottom: 15px; font-size: 14px;">FCL Acumulado</h3>
                         <canvas id="chartFlujoCajaAcum"></canvas>
+                    </div>
+
+                    <div class="chart-container sensibilidad-container">
+                        <div class="sens-header">
+                            <h3 style="margin-bottom: 4px; font-size: 14px;">Análisis de Sensibilidad · WACC vs VAN</h3>
+                            <div class="sens-subtitle">Explora cómo cambia el VAN al variar el WACC ±5 puntos porcentuales</div>
+                        </div>
+                        <canvas id="chartSensibilidad" style="max-height: 240px;"></canvas>
+                        <div class="sens-controls">
+                            <label class="sens-label">WACC simulado:
+                                <input type="range" id="sensWaccSlider" min="0" max="40" step="0.25" value="13" class="sens-slider">
+                                <span id="sensWaccValue" class="sens-value">13.00%</span>
+                            </label>
+                            <div class="sens-result">
+                                VAN simulado: <b id="sensVanValue">—</b>
+                                <span id="sensVanDelta" class="sens-delta"></span>
+                            </div>
+                        </div>
                     </div>
 
                     <h3 style="margin-top: 20px; margin-bottom: 15px; font-size: 14px;">Estado de Resultados Proyectado</h3>
@@ -963,8 +1169,207 @@
         let estado = {
             config: null,
             resultado: null,
-            charts: {}
+            charts: {},
+            validacion: null,
+            archivoNombre: null
         };
+
+        // ═══════════════════════════════════════════════════════════════════
+        // LOCALSTORAGE (persistir Excel entre sesiones/recargas)
+        // Guardamos el archivo en base64 para poder resubirlo automáticamente
+        // si el servidor Render se durmió o si el usuario recarga.
+        // ═══════════════════════════════════════════════════════════════════
+        const LS_KEY_EXCEL = 'fc_excel_b64';
+        const LS_KEY_NAME  = 'fc_excel_name';
+        const LS_KEY_TS    = 'fc_excel_ts';
+        const LS_KEY_VAL   = 'fc_excel_validacion';
+
+        function guardarExcelLocal(file) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    // Solo guardar si es <5MB para no llenar localStorage (~5-10MB límite)
+                    if (file.size > 5 * 1024 * 1024) return;
+                    localStorage.setItem(LS_KEY_EXCEL, reader.result);
+                    localStorage.setItem(LS_KEY_NAME, file.name);
+                    localStorage.setItem(LS_KEY_TS, new Date().toISOString());
+                } catch (e) {
+                    console.warn('No se pudo guardar Excel en localStorage:', e);
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function limpiarExcelLocal() {
+            localStorage.removeItem(LS_KEY_EXCEL);
+            localStorage.removeItem(LS_KEY_NAME);
+            localStorage.removeItem(LS_KEY_TS);
+            localStorage.removeItem(LS_KEY_VAL);
+        }
+
+        async function restaurarExcelDeLocalStorage() {
+            const b64 = localStorage.getItem(LS_KEY_EXCEL);
+            const name = localStorage.getItem(LS_KEY_NAME);
+            if (!b64 || !name) return false;
+            try {
+                // dataURL → Blob → File
+                const res = await fetch(b64);
+                const blob = await res.blob();
+                const file = new File([blob], name, {type: blob.type});
+                // Subir silenciosamente (sin toast de éxito para no molestar)
+                const formData = new FormData();
+                formData.append('archivo', file);
+                const upRes = await fetch('/api/subir-excel', {method:'POST', body:formData});
+                if (!upRes.ok) return false;
+                const data = await upRes.json();
+                estado.validacion = data.validacion || null;
+                estado.archivoNombre = name;
+                if (data.validacion) {
+                    try { localStorage.setItem(LS_KEY_VAL, JSON.stringify(data.validacion)); } catch (e) {}
+                }
+                actualizarChipExcel(name);
+                return true;
+            } catch (e) {
+                console.warn('No se pudo restaurar Excel de localStorage:', e);
+                return false;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // TOAST NOTIFICATIONS (reemplazan alert() no bloqueante)
+        // ═══════════════════════════════════════════════════════════════════
+        function toast(mensaje, tipo = 'info', duracion = 4000) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const t = document.createElement('div');
+            t.className = 'toast ' + tipo;
+            const iconos = { success: '✓', error: '✕', info: 'ℹ' };
+            const titulos = { success: 'Éxito', error: 'Error', info: 'Información' };
+            const partes = typeof mensaje === 'string' ? { title: titulos[tipo], text: mensaje } : mensaje;
+            t.innerHTML = `
+                <div class="toast-icon">${iconos[tipo] || iconos.info}</div>
+                <div class="toast-body">
+                    <div class="toast-title">${partes.title || titulos[tipo]}</div>
+                    <div class="toast-text">${partes.text || ''}</div>
+                </div>
+                <button class="toast-close" aria-label="Cerrar">×</button>
+            `;
+            container.appendChild(t);
+            requestAnimationFrame(() => t.classList.add('show'));
+            const cerrar = () => {
+                t.classList.remove('show');
+                setTimeout(() => t.remove(), 300);
+            };
+            t.querySelector('.toast-close').onclick = cerrar;
+            if (duracion > 0) setTimeout(cerrar, duracion);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // CONFIRM MODAL (reemplaza confirm() bloqueante, adaptado a tema)
+        // ═══════════════════════════════════════════════════════════════════
+        function confirmarAccion(texto, titulo = '¿Confirmar?') {
+            return new Promise(resolve => {
+                const overlay = document.getElementById('modal-overlay');
+                document.getElementById('modal-title').textContent = titulo;
+                document.getElementById('modal-text').textContent = texto;
+                overlay.classList.add('show');
+                const cerrar = (r) => {
+                    overlay.classList.remove('show');
+                    resolve(r);
+                };
+                document.getElementById('modal-ok').onclick = () => cerrar(true);
+                document.getElementById('modal-cancel').onclick = () => cerrar(false);
+                overlay.onclick = e => { if (e.target === overlay) cerrar(false); };
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // MODAL DE VALIDACIÓN DEL EXCEL (info detallada de lo detectado)
+        // ═══════════════════════════════════════════════════════════════════
+        function mostrarValidacion() {
+            if (!estado.validacion) {
+                toast('Sube un Excel primero para ver los detalles de validación.', 'info');
+                return;
+            }
+            const v = estado.validacion;
+            const gruposHtml = Object.entries(v.grupos_parametros || {})
+                .map(([g, n]) => `<li><b>${g}</b>: ${n} parámetro${n===1?'':'s'}</li>`).join('');
+            const indOk = (v.indicadores_extraidos || []).map(k => `<span class="pill ok">${k.toUpperCase()}</span>`).join('') || '—';
+            const indFalta = (v.indicadores_faltantes || []).length
+                ? (v.indicadores_faltantes || []).map(k => `<span class="pill warn">${k.toUpperCase()}</span>`).join('')
+                : '<span style="color: var(--success)">Todos presentes ✓</span>';
+            const fmtM = (n) => n === null || n === undefined ? '—' : '$' + (n/1e6).toFixed(1) + 'M';
+            const fmtPct = (n) => n === null || n === undefined ? '—' : (n*100).toFixed(2) + '%';
+
+            const html = `
+                <div class="val-section">
+                    <div class="val-label">Archivo</div>
+                    <div class="val-value">${estado.archivoNombre || '—'}</div>
+                </div>
+                <div class="val-section">
+                    <div class="val-label">Hoja procesada</div>
+                    <div class="val-value">${v.hoja_procesada}</div>
+                </div>
+                <div class="val-section">
+                    <div class="val-label">Horizonte detectado</div>
+                    <div class="val-value">${v.horizonte_anos} años</div>
+                </div>
+                <div class="val-section">
+                    <div class="val-label">Filas con datos (Estado de Resultados)</div>
+                    <div class="val-value">${v.filas_estado_resultados} / 12 filas</div>
+                </div>
+                <div class="val-section">
+                    <div class="val-label">Indicadores extraídos</div>
+                    <div class="val-pills">${indOk}</div>
+                </div>
+                <div class="val-section">
+                    <div class="val-label">Indicadores faltantes</div>
+                    <div class="val-pills">${indFalta}</div>
+                </div>
+                <div class="val-section">
+                    <div class="val-label">Parámetros por grupo</div>
+                    <ul class="val-list">${gruposHtml}</ul>
+                </div>
+                <div class="val-section val-summary">
+                    <div><span class="val-key">VAN:</span> <b>${fmtM(v.van)}</b></div>
+                    <div><span class="val-key">TIR:</span> <b>${fmtPct(v.tir)}</b></div>
+                    <div><span class="val-key">WACC:</span> <b>${fmtPct(v.wacc)}</b></div>
+                    <div><span class="val-key">Inversión inicial:</span> <b>${fmtM(v.inversion_inicial)}</b></div>
+                </div>
+            `;
+            document.getElementById('modal-title').textContent = '📋 Validación del Excel';
+            document.getElementById('modal-text').innerHTML = html;
+            document.getElementById('modal-cancel').style.display = 'none';
+            document.getElementById('modal-ok').textContent = 'Cerrar';
+            const overlay = document.getElementById('modal-overlay');
+            overlay.classList.add('show');
+            const cerrar = () => {
+                overlay.classList.remove('show');
+                document.getElementById('modal-cancel').style.display = '';
+                document.getElementById('modal-ok').textContent = 'Aceptar';
+            };
+            document.getElementById('modal-ok').onclick = cerrar;
+            overlay.onclick = e => { if (e.target === overlay) cerrar(); };
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // EXCEL CHIP (indicador del archivo activo en el header)
+        // ═══════════════════════════════════════════════════════════════════
+        function actualizarChipExcel(nombreArchivo) {
+            const chip = document.getElementById('caso-base');
+            const chipText = document.getElementById('excel-chip-text');
+            if (!chip || !chipText) return;
+            if (nombreArchivo) {
+                const hora = new Date().toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'});
+                chipText.textContent = nombreArchivo;
+                chip.title = `${nombreArchivo} · cargado a las ${hora}`;
+                chip.classList.add('active');
+            } else {
+                chipText.textContent = 'Sin Excel cargado';
+                chip.title = 'Aún no has cargado un Excel';
+                chip.classList.remove('active');
+            }
+        }
 
         // ═══════════════════════════════════════════════════════════════════
         // INICIALIZACIÓN
@@ -974,12 +1379,37 @@
             document.getElementById('loading').style.display = 'block';
             try {
                 await cargarDatos();
+                // Si hay datos: mostrar dashboard. También actualizar chip si teníamos nombre guardado.
+                const nombreGuardado = localStorage.getItem(LS_KEY_NAME);
+                if (nombreGuardado) {
+                    actualizarChipExcel(nombreGuardado);
+                    estado.archivoNombre = nombreGuardado;
+                }
+                // Restaurar validación guardada
+                try {
+                    const valGuardada = localStorage.getItem(LS_KEY_VAL);
+                    if (valGuardada) estado.validacion = JSON.parse(valGuardada);
+                } catch (e) { /* ignorar */ }
                 renderizarUI();
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('content').style.display = 'block';
             } catch (err) {
-                if (err.message === 'NO_EXCEL') return;
-                alert('Error: ' + err.message);
+                if (err.message === 'NO_EXCEL') {
+                    // Intentar restaurar desde localStorage
+                    const restaurado = await restaurarExcelDeLocalStorage();
+                    if (restaurado) {
+                        try {
+                            await cargarDatos();
+                            renderizarUI();
+                            document.getElementById('loading').style.display = 'none';
+                            document.getElementById('content').style.display = 'block';
+                            toast('Sesión anterior restaurada desde el navegador', 'info', 3500);
+                            return;
+                        } catch (e2) { /* fall through */ }
+                    }
+                    return;
+                }
+                toast('Error al cargar: ' + err.message, 'error');
             }
         }
 
@@ -1060,6 +1490,9 @@
                     <div class="sidebar-content">
                         <button class="btn btn-primary" style="width: 100%; margin-bottom: 8px;" onclick="subirExcel()">
                             Seleccionar archivo
+                        </button>
+                        <button class="btn btn-secondary" style="width: 100%; margin-bottom: 8px;" onclick="mostrarValidacion()">
+                            📋 Ver info del Excel
                         </button>
                         <button class="btn btn-secondary" style="width: 100%;" onclick="resetearConfig()">
                             Restaurar
@@ -1344,6 +1777,117 @@
                     plugins: { legend: { display: false } }
                 }
             });
+
+            // Gráfico 3: Análisis de sensibilidad WACC vs VAN
+            renderizarSensibilidad();
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ANÁLISIS DE SENSIBILIDAD (WACC vs VAN, interactivo)
+        // Usa los flujos reales del Excel; el usuario mueve un slider para
+        // simular otro WACC y ver el VAN en tiempo real. Nada modifica el
+        // pipeline de datos existente.
+        // ═══════════════════════════════════════════════════════════════════
+        function calcularVAN(flujos, wacc) {
+            let van = 0;
+            for (let t = 0; t < flujos.length; t++) {
+                van += flujos[t] / Math.pow(1 + wacc, t);
+            }
+            return van;
+        }
+
+        function renderizarSensibilidad() {
+            const canvas = document.getElementById('chartSensibilidad');
+            if (!canvas || !estado.resultado) return;
+            const flujos = estado.resultado.flujo_caja.flujo_sin_vt;
+            const waccActual = estado.resultado.indicadores_con_vt.wacc;
+            const vanActual = estado.resultado.indicadores_con_vt.van;
+
+            // Rango de WACC: de max(0, waccActual - 8pp) a waccActual + 12pp, paso 0.5pp
+            const waccMin = Math.max(0.001, waccActual - 0.08);
+            const waccMax = waccActual + 0.12;
+            const pasos = [];
+            for (let w = waccMin; w <= waccMax + 0.0001; w += 0.005) {
+                pasos.push({wacc: w, van: calcularVAN(flujos, w)});
+            }
+
+            const labels = pasos.map(p => (p.wacc*100).toFixed(1) + '%');
+            const vans = pasos.map(p => p.van / 1e6);
+
+            // Marcar el WACC actual con un punto especial
+            const pointColors = pasos.map(p => Math.abs(p.wacc - waccActual) < 0.0026 ? '#e74c3c' : 'transparent');
+            const pointRadii  = pasos.map(p => Math.abs(p.wacc - waccActual) < 0.0026 ? 6 : 0);
+
+            if (estado.charts.sensibilidad) estado.charts.sensibilidad.destroy();
+            estado.charts.sensibilidad = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'VAN (M$)',
+                        data: vans,
+                        borderColor: '#2980b9',
+                        backgroundColor: 'rgba(41, 128, 185, 0.1)',
+                        borderWidth: 2, tension: 0.3, fill: true,
+                        pointBackgroundColor: pointColors,
+                        pointBorderColor: pointColors,
+                        pointRadius: pointRadii,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            title: {display: true, text: 'VAN (M$)'},
+                            ticks: {callback: v => '$' + v + 'M'},
+                            grid: {color: 'rgba(200,200,200,0.15)'}
+                        },
+                        x: {
+                            title: {display: true, text: 'WACC'},
+                            grid: {display: false}
+                        }
+                    },
+                    plugins: {
+                        legend: {display: false},
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `VAN: $${ctx.parsed.y.toFixed(1)}M · WACC: ${labels[ctx.dataIndex]}`
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Configurar slider: rango, valor inicial, actualización en vivo
+            const slider = document.getElementById('sensWaccSlider');
+            const valueEl = document.getElementById('sensWaccValue');
+            const vanEl = document.getElementById('sensVanValue');
+            const deltaEl = document.getElementById('sensVanDelta');
+            if (!slider) return;
+            slider.min = (waccMin * 100).toFixed(2);
+            slider.max = (waccMax * 100).toFixed(2);
+            slider.step = 0.25;
+            slider.value = (waccActual * 100).toFixed(2);
+
+            const actualizar = () => {
+                const w = parseFloat(slider.value) / 100;
+                const van = calcularVAN(flujos, w);
+                valueEl.textContent = (w*100).toFixed(2) + '%';
+                vanEl.textContent = '$' + (van/1e6).toFixed(2) + 'M';
+                const delta = van - vanActual;
+                const pct = vanActual !== 0 ? (delta / Math.abs(vanActual)) * 100 : 0;
+                if (Math.abs(delta) < 1e4) {
+                    deltaEl.textContent = '(WACC actual)';
+                    deltaEl.className = 'sens-delta';
+                } else {
+                    const signo = delta >= 0 ? '+' : '';
+                    deltaEl.textContent = `${signo}$${(delta/1e6).toFixed(2)}M (${signo}${pct.toFixed(1)}%)`;
+                    deltaEl.className = 'sens-delta ' + (delta >= 0 ? 'positive' : 'negative');
+                }
+            };
+            slider.oninput = actualizar;
+            actualizar();
         }
 
         // ═══════════════════════════════════════════════════════════════════
@@ -1501,17 +2045,30 @@
         }
 
         async function resetearConfig() {
-            if (!confirm('¿Restaurar? Se borrarán los datos actuales y podrás subir un nuevo Excel.')) return;
+            const ok = await confirmarAccion(
+                'Se borrarán los datos actuales y podrás subir un nuevo Excel.',
+                '¿Restaurar dashboard?'
+            );
+            if (!ok) return;
             try {
                 await fetch('/api/resetear', { method: 'POST' });
                 estado.resultado = null;
+                estado.validacion = null;
+                estado.archivoNombre = null;
+                limpiarExcelLocal();
+                actualizarChipExcel(null);
                 await cargarDatos();
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('content').style.display = 'block';
                 renderizarUI();
+                toast('Dashboard restaurado. Sube un nuevo Excel para comenzar.', 'success');
             } catch (err) {
-                if (err.message === 'NO_EXCEL') return;
-                alert('Error: ' + err.message);
+                if (err.message === 'NO_EXCEL') {
+                    actualizarChipExcel(null);
+                    toast('Dashboard restaurado. Sube un nuevo Excel.', 'info');
+                    return;
+                }
+                toast('Error al restaurar: ' + err.message, 'error');
             }
         }
 
@@ -1553,11 +2110,25 @@
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Error subiendo Excel');
 
+                estado.validacion = data.validacion || null;
+                estado.archivoNombre = file.name;
+                if (data.validacion) {
+                    try { localStorage.setItem(LS_KEY_VAL, JSON.stringify(data.validacion)); } catch (e) {}
+                }
+                guardarExcelLocal(file);  // persistir para restaurar tras recarga/dormido
                 await cargarDatos();
 
                 loadingEl.style.display = 'none';
                 document.getElementById('content').style.display = 'block';
                 renderizarUI();
+                actualizarChipExcel(file.name);
+                const detallesTxt = data.validacion
+                    ? `${data.parametros_actualizados} grupos · ${data.validacion.horizonte_anos} años · ${data.validacion.indicadores_extraidos.length}/5 indicadores`
+                    : `${data.parametros_actualizados || 0} parámetros extraídos`;
+                toast({
+                    title: 'Excel cargado correctamente',
+                    text: detallesTxt
+                }, 'success', 5000);
                 fileInput.value = '';
             } catch (err) {
                 if (err.message === 'NO_EXCEL') return;

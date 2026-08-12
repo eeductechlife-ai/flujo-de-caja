@@ -43,6 +43,7 @@ estado_global = {
     'config': None,
     'resultado': None,
     'archivo_cargado': None,
+    'validacion': None,
 }
 
 def allowed_file(filename):
@@ -237,14 +238,18 @@ def get_resultado():
             return obj
 
     # Construir respuesta con todos los datos necesarios
-    return jsonify({
+    respuesta = {
         'config': resultado['config'],
         'estado_resultados': convert_to_float(resultado['estado_resultados']),
         'flujo_caja': convert_to_float(resultado['flujo_caja']),
         'depreciacion_tabla': convert_to_float(resultado['depreciacion_tabla']),
         'indicadores_sin_vt': convert_to_float(resultado['indicadores_sin_vt']),
         'indicadores_con_vt': convert_to_float(resultado['indicadores_con_vt']),
-    })
+    }
+    # Incluir validación si está disponible
+    if estado_global.get('validacion'):
+        respuesta['validacion'] = estado_global['validacion']
+    return jsonify(respuesta)
 
 
 @app.route('/api/actualizar-parametro', methods=['POST'])
@@ -408,24 +413,54 @@ def subir_excel():
         # Limpiar temp
         os.remove(filepath)
 
-        # Preparar respuesta con datos para debugging
+        # Preparar respuesta con reporte de validación
+        _er = estado_global['resultado']['estado_resultados']
+        _fc = estado_global['resultado']['flujo_caja']
+        _ind = estado_global['resultado']['indicadores_con_vt']
+
+        # Contar filas del estado de resultados con datos no nulos
+        filas_con_datos = sum(1 for k, v in _er.items()
+                              if isinstance(v, list) and any(x != 0 for x in v))
+        # Indicadores extraídos con valor
+        indicadores_ok = [k for k in ('van', 'tir', 'wacc', 'payback', 'indice_rentabilidad')
+                          if _ind.get(k) is not None]
+        indicadores_faltan = [k for k in ('van', 'tir', 'wacc', 'payback', 'indice_rentabilidad')
+                              if _ind.get(k) is None]
+
+        # Contar parámetros por grupo
+        grupos_params = {}
+        for grupo, vals in parametros_excel.items():
+            if isinstance(vals, dict):
+                grupos_params[grupo] = len(vals)
+            else:
+                grupos_params[grupo] = 1
+
         respuesta = {
             'ok': True,
-            'mensaje': f'✅ Excel "{filename}" cargado correctamente',
+            'mensaje': f'Excel "{filename}" cargado correctamente',
             'archivo_cargado': filename,
             'parametros_actualizados': len(parametros_excel),
             'flujo_de_excel': bool(flujo_excel and flujo_excel.get('flujo_caja')),
-            'debug': {
-                'van_en_resultado': estado_global['resultado']['indicadores_con_vt'].get('van'),
-                'flujo_primero': estado_global['resultado']['flujo_caja']['flujo_con_vt'][0] if estado_global['resultado']['flujo_caja']['flujo_con_vt'] else None,
-                'ingresos_primero': estado_global['resultado']['estado_resultados']['ingresos'][0] if estado_global['resultado']['estado_resultados']['ingresos'] else None
+            'validacion': {
+                'hoja_procesada': 'FC Convencional',
+                'horizonte_anos': completo.get('horizonte_evaluacion', 6),
+                'filas_estado_resultados': filas_con_datos,
+                'grupos_parametros': grupos_params,
+                'indicadores_extraidos': indicadores_ok,
+                'indicadores_faltantes': indicadores_faltan,
+                'van': _ind.get('van'),
+                'tir': _ind.get('tir'),
+                'wacc': _ind.get('wacc'),
+                'inversion_inicial': abs(_fc['flujo_sin_vt'][0]) if _fc.get('flujo_sin_vt') else None,
             }
         }
+        # Guardar validación en estado global para devolverla en /api/resultado
+        estado_global['validacion'] = respuesta['validacion']
 
         print(f"\n📤 Retornando a frontend:")
-        print(f"   VAN: {respuesta['debug']['van_en_resultado']}")
-        print(f"   Flujo: {respuesta['debug']['flujo_primero']}")
-        print(f"   Ingresos: {respuesta['debug']['ingresos_primero']}")
+        print(f"   VAN: {respuesta['validacion']['van']}")
+        print(f"   Horizonte: {respuesta['validacion']['horizonte_anos']} años")
+        print(f"   Parámetros: {respuesta['parametros_actualizados']} grupos")
         print("=" * 70 + "\n")
 
         return jsonify(respuesta)
@@ -483,6 +518,7 @@ def resetear():
     try:
         estado_global['resultado'] = None
         estado_global['archivo_cargado'] = None
+        estado_global['validacion'] = None
         estado_global['config'] = cargar_config_default()
         # Eliminar el archivo persistente para que el estado sea 100% limpio
         if os.path.exists('resultado_excel_cargado.json'):
