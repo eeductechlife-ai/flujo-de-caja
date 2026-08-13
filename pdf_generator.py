@@ -9,6 +9,17 @@ import re
 import datetime
 from typing import Dict, List
 
+_MESES_ES = [
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+]
+
+
+def _fecha_larga_es(d: datetime.date = None) -> str:
+    """Fecha en español sin depender del locale del sistema (Render puede no tenerlo)."""
+    d = d or datetime.date.today()
+    return f"{d.day} de {_MESES_ES[d.month - 1]} de {d.year}"
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Utilidades de formato
@@ -659,213 +670,480 @@ def exportar_pdf(resultado: dict, output_path: str = None) -> bytes:
     return abs_output
 
 
-def _exportar_pdf_reportlab_bytes(resultado: dict) -> bytes:
-    """ReportLab: PDF retornando bytes (para Flask)."""
-    import io
-    try:
-        from reportlab.lib.pagesizes import A4, landscape
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import cm, mm
-        from reportlab.lib import colors
-        from reportlab.platypus import (
-            SimpleDocTemplate, Table, TableStyle, Spacer,
-            Paragraph, HRFlowable, PageBreak
-        )
-        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-    except ImportError:
-        raise RuntimeError("ReportLab no está disponible.")
+# ─────────────────────────────────────────────────────────────────────────────
+# Reporte PDF profesional con ReportLab (motor por defecto en la nube/Render)
+# Genera el documento COMPLETO multipágina — puro Python, sin dependencias de SO.
+# ─────────────────────────────────────────────────────────────────────────────
 
-    buffer = io.BytesIO()
+# Paleta corporativa (reutilizada en portada, encabezados y badges)
+_AZUL   = "#1a3a5c"
+_AZUL2  = "#2980b9"
+_AZULC  = "#d6eaf8"
+_VERDE  = "#27ae60"
+_ROJO   = "#c0392b"
+_GRIS   = "#f5f7fa"
+_LINEA  = "#dde3ea"
+_TEXTO  = "#2c3e50"
+_GRISTX = "#7f8c8d"
+
+
+def _es_nan(x) -> bool:
+    return isinstance(x, float) and x != x
+
+
+class _NumberedCanvas:
+    """Canvas que dibuja encabezado + pie con 'Página X de Y' en cada hoja
+    (excepto la portada). Se construye dinámicamente para heredar del Canvas real."""
+    pass
+
+
+def _make_numbered_canvas():
+    from reportlab.pdfgen import canvas as _canvas
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    import datetime as _dt
+
+    ancho, alto = landscape(A4)
+    fecha = _dt.date.today().strftime("%d/%m/%Y")
+
+    class NumberedCanvas(_canvas.Canvas):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._saved = []
+
+        def showPage(self):
+            self._saved.append(dict(self.__dict__))
+            self._startPage()
+
+        def save(self):
+            total = len(self._saved)
+            for i, state in enumerate(self._saved, start=1):
+                self.__dict__.update(state)
+                self._decorar(i, total)
+                super().showPage()
+            super().save()
+
+        def _decorar(self, page_num, total):
+            # La portada (página 1) va sin encabezado/pie
+            if page_num == 1:
+                return
+            self.saveState()
+            self.setFont("Helvetica", 8)
+            self.setFillColor(colors.HexColor(_GRISTX))
+            # Encabezado
+            self.drawCentredString(
+                ancho / 2.0, alto - 10 * mm,
+                "Limited Group S.A. · Evaluación Financiera del Proyecto")
+            self.setStrokeColor(colors.HexColor(_LINEA))
+            self.setLineWidth(0.5)
+            self.line(12 * mm, alto - 12 * mm, ancho - 12 * mm, alto - 12 * mm)
+            # Pie
+            self.line(12 * mm, 12 * mm, ancho - 12 * mm, 12 * mm)
+            self.drawString(12 * mm, 8 * mm, f"Confidencial · {fecha}")
+            self.drawRightString(ancho - 12 * mm, 8 * mm,
+                                 f"Página {page_num} de {total}")
+            self.restoreState()
+
+    return NumberedCanvas
+
+
+def _construir_story(resultado: dict):
+    """Construye la lista de flowables del reporte profesional completo.
+    Reutilizada tanto por el modo bytes (Flask/nube) como por el modo archivo."""
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.platypus import (
+        Table, TableStyle, Spacer, Paragraph, PageBreak, KeepTogether
+    )
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+
     cfg     = resultado["config"]
     er      = resultado["estado_resultados"]
     fc      = resultado["flujo_caja"]
+    dep_tab = resultado.get("depreciacion_tabla", {})
+    ind_sin = resultado["indicadores_sin_vt"]
+    ind_con = resultado["indicadores_con_vt"]
     h       = cfg["horizonte_evaluacion"]
+    ancho, _ = landscape(A4)
+    util = ancho - 24 * mm  # ancho útil entre márgenes
 
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=12*mm, leftMargin=12*mm,
-                            topMargin=15*mm, bottomMargin=18*mm)
+    AZUL  = colors.HexColor(_AZUL)
+    AZUL2 = colors.HexColor(_AZUL2)
+    AZULC = colors.HexColor(_AZULC)
+    VERDE = colors.HexColor(_VERDE)
+    ROJO  = colors.HexColor(_ROJO)
+    GRIS  = colors.HexColor(_GRIS)
+    LINEA = colors.HexColor(_LINEA)
 
-    styles = getSampleStyleSheet()
-    elements = [Paragraph("PDF Flujo de Caja", styles['Title']), Spacer(1, 12)]
+    st = getSampleStyleSheet()
+    st_title = ParagraphStyle("t", fontSize=26, textColor=colors.white,
+                              alignment=TA_CENTER, fontName="Helvetica-Bold", leading=30)
+    st_sub   = ParagraphStyle("s", fontSize=13, textColor=colors.white,
+                              alignment=TA_CENTER, leading=18)
+    st_sub2  = ParagraphStyle("s2", fontSize=10, textColor=colors.Color(1, 1, 1, 0.8),
+                              alignment=TA_CENTER, leading=15)
+    st_meta  = ParagraphStyle("m", fontSize=10, textColor=colors.white, alignment=TA_CENTER)
+    st_h2    = ParagraphStyle("h2", fontSize=13, textColor=AZUL,
+                              fontName="Helvetica-Bold", spaceAfter=8, spaceBefore=2)
+    st_nota  = ParagraphStyle("n", fontSize=8, textColor=colors.HexColor(_GRISTX),
+                              fontName="Helvetica-Oblique", spaceAfter=6)
+    st_intro = ParagraphStyle("i", fontSize=9, textColor=colors.HexColor(_TEXTO),
+                              leading=13, spaceBefore=4)
 
-    # Tabla simple de flujo
-    filas_fc = [["Concepto"] + [f"Año {i}" for i in range(h + 1)]]
-    for label, vals in [("Flujo SIN VT", fc["flujo_sin_vt"]), ("Flujo CON VT", fc["flujo_con_vt"])]:
-        filas_fc.append([label] + [fmt_m(vals[i]) for i in range(h + 1)])
+    def h2(txt):
+        # Encabezado de sección con línea inferior corporativa
+        p = Paragraph(txt, st_h2)
+        linea = Table([[""]], colWidths=[util], rowHeights=[2])
+        linea.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), AZUL),
+                                   ("TOPPADDING", (0, 0), (-1, -1), 0),
+                                   ("BOTTOMPADDING", (0, 0), (-1, -1), 0)]))
+        return [p, linea, Spacer(1, 8)]
 
-    t = Table(filas_fc)
-    t.setStyle(TableStyle([("FONTSIZE", (0, 0), (-1, -1), 8),
-                           ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                           ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a3a5c")),
-                           ("TEXTCOLOR", (0, 0), (-1, 0), colors.white)]))
-    elements.append(t)
+    def tabla(datos, negativos_idx=None, col0_ratio=0.20):
+        """Tabla financiera estándar. negativos_idx: matriz de bool (misma forma
+        que datos) marcando celdas negativas para pintarlas en rojo."""
+        ncols = len(datos[0])
+        w0 = util * col0_ratio
+        wr = (util - w0) / (ncols - 1) if ncols > 1 else util
+        col_widths = [w0] + [wr] * (ncols - 1)
+        t = Table(datos, colWidths=col_widths, repeatRows=1)
+        estilo = [
+            ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("BACKGROUND", (0, 0), (-1, 0), AZUL),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 8.5),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, GRIS]),
+            ("GRID", (0, 0), (-1, -1), 0.3, LINEA),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+            ("ALIGN", (0, 0), (0, -1), "LEFT"),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ]
+        if negativos_idx:
+            for ri, fila in enumerate(negativos_idx):
+                for ci, neg in enumerate(fila):
+                    if neg:
+                        estilo.append(("TEXTCOLOR", (ci, ri), (ci, ri), ROJO))
+        t.setStyle(TableStyle(estilo))
+        return t
 
-    doc.build(elements)
+    def marca_negativos(datos, valores):
+        """Genera matriz de negativos a partir de la matriz de valores crudos."""
+        idx = [[False] * len(datos[0])]  # header
+        for fila in valores:
+            idx.append([False] + [(isinstance(v, (int, float)) and not _es_nan(v) and v < 0) for v in fila])
+        return idx
+
+    story = []
+
+    # ── 1. PORTADA ──────────────────────────────────────────────────────
+    emp = cfg.get("empresa", {})
+    nombre  = emp.get("nombre", "Limited Group S.A.")
+    prod    = emp.get("producto", "—")
+    sector  = emp.get("sector", "—")
+    fecha_larga = _fecha_larga_es()
+
+    meta_txt = (f"Horizonte de Evaluación: {h} años &nbsp;·&nbsp; "
+                f"WACC: {cfg.get('wacc', 0):.0%} &nbsp;·&nbsp; "
+                f"Impuesto: {cfg.get('impuestos', {}).get('tasa_impositiva', 0):.0%}")
+
+    portada = Table([
+        [Paragraph("LG", ParagraphStyle("lg", fontSize=24, textColor=colors.white,
+                                        alignment=TA_CENTER, fontName="Helvetica-Bold"))],
+        [Spacer(1, 16)],
+        [Paragraph(nombre, st_title)],
+        [Paragraph("Evaluación Financiera del Proyecto", st_sub)],
+        [Spacer(1, 8)],
+        [Paragraph(f"Producto: {prod} &nbsp;·&nbsp; Sector: {sector}", st_sub2)],
+        [Spacer(1, 26)],
+        [Paragraph(meta_txt, st_meta)],
+        [Spacer(1, 26)],
+        [Paragraph(fecha_larga, st_sub2)],
+    ], colWidths=[util])
+    portada.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), AZUL),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (0, 0), 70),
+        ("BOTTOMPADDING", (0, -1), (0, -1), 70),
+    ]))
+    story += [portada, PageBreak()]
+
+    # ── 2. RESUMEN EJECUTIVO (KPIs) ─────────────────────────────────────
+    sec_resumen = h2("Resumen Ejecutivo")
+    van = ind_con.get("van", 0)
+    tir = ind_con.get("tir", 0)
+    wacc = ind_con.get("wacc", 0)
+    payback = ind_con.get("payback")
+    decision = ind_con.get("decision", "—")
+    color_dec = VERDE if (van or 0) > 0 else ROJO
+
+    def kpi_cell(label, valor, color=None):
+        cl = ParagraphStyle("kl", fontSize=8.5, textColor=colors.HexColor(_GRISTX),
+                            alignment=TA_CENTER, spaceAfter=4)
+        cv = ParagraphStyle("kv", fontSize=17, fontName="Helvetica-Bold",
+                            textColor=color or AZUL, alignment=TA_CENTER, leading=20)
+        return [Paragraph(label, cl), Paragraph(valor, cv)]
+
+    tir_txt = "N/D" if _es_nan(tir) else f"{tir:.2%}"
+    pb_txt = f"Año {payback}" if payback else "No recuperado"
+    kpis = Table([[
+        kpi_cell("VAN (con Valor Terminal)", fmt_m(van), VERDE if (van or 0) > 0 else ROJO),
+        kpi_cell("TIR", tir_txt),
+        kpi_cell("WACC", f"{wacc:.2%}"),
+        kpi_cell("Payback", pb_txt),
+    ]], colWidths=[util / 4.0] * 4)
+    kpis.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), GRIS),
+        ("BOX", (0, 0), (-1, -1), 0.5, LINEA),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, LINEA),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 12),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+    ]))
+    sec_resumen += [kpis, Spacer(1, 10)]
+
+    # Badge de decisión
+    badge = Table([[Paragraph(f"DECISIÓN: {decision}",
+                              ParagraphStyle("bd", fontSize=11, textColor=colors.white,
+                                             alignment=TA_CENTER, fontName="Helvetica-Bold"))]],
+                  colWidths=[util])
+    badge.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), color_dec),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    sec_resumen += [badge, Spacer(1, 12)]
+
+    interp = (f"El proyecto presenta un VAN de <b>{fmt_m(van)}</b> descontado al WACC de "
+              f"<b>{wacc:.1%}</b>. "
+              + ("Al ser el VAN positivo, el proyecto <b>crea valor</b> por encima del costo de "
+                 "capital y es financieramente atractivo. "
+                 if (van or 0) > 0 else
+                 "Al ser el VAN negativo, el proyecto <b>destruye valor</b> frente al costo de capital. ")
+              + (f"La TIR de <b>{tir_txt}</b> "
+                 + ("supera" if (not _es_nan(tir) and tir > wacc) else "no supera")
+                 + " al WACC. " if not _es_nan(tir) else "")
+              + (f"La inversión se recupera en el <b>{pb_txt.lower()}</b>." if payback else ""))
+    sec_resumen += [Paragraph(interp, st_intro)]
+
+    # ── 3. ESTADO DE RESULTADOS ─────────────────────────────────────────
+    sec_er = h2("Estado de Resultados Proyectado")
+    anos = ["Concepto"] + [f"Año {i}" for i in range(h + 1)]
+
+    # Filas: si el Excel trae el desglose de costos, se usa; si no, egresos_op.
+    if "costo_variable" in er:
+        er_defs = [
+            ("Ingresos Operativos", "ingresos"),
+            ("(-) Costo Variable Fabricación", "costo_variable"),
+            ("(-) Costo Fijo Fabricación", "costo_fijo"),
+            ("(-) Gastos Admón. y Ventas", "gastos_admon"),
+            ("(-) Comisiones por Venta", "comisiones"),
+            ("(-) Depreciación", "depreciacion"),
+            ("(-) Amortización Intangibles", "amortizacion"),
+            ("EBIT (Utilidad antes de Impuestos)", "ebit"),
+            ("(-) Impuesto de Renta", "impuesto"),
+            ("UTILIDAD NETA", "utilidad_neta"),
+        ]
+    else:
+        er_defs = [
+            ("Ingresos Operativos", "ingresos"),
+            ("(-) Costos y Gastos Operativos", "egresos_op"),
+            ("(-) Depreciación", "depreciacion"),
+            ("(-) Amortización Intangibles", "amortizacion"),
+            ("EBIT (Utilidad antes de Impuestos)", "ebit"),
+            ("(-) Impuesto de Renta", "impuesto"),
+            ("UTILIDAD NETA", "utilidad_neta"),
+        ]
+    er_defs = [(lbl, k) for (lbl, k) in er_defs if k in er and er[k] is not None]
+
+    filas_er, valores_er = [anos], []
+    for lbl, k in er_defs:
+        vals = [er[k][i] if i < len(er[k]) else 0 for i in range(h + 1)]
+        valores_er.append(vals)
+        filas_er.append([lbl] + [fmt_m(v) for v in vals])
+
+    t_er = tabla(filas_er, marca_negativos(filas_er, valores_er))
+    # Resaltar EBIT (subtotal) y UTILIDAD NETA (total)
+    idx_ebit = next((i + 1 for i, (l, k) in enumerate(er_defs) if k == "ebit"), None)
+    idx_un = len(er_defs)
+    extra = []
+    if idx_ebit:
+        extra += [("BACKGROUND", (0, idx_ebit), (-1, idx_ebit), AZULC),
+                  ("FONTNAME", (0, idx_ebit), (-1, idx_ebit), "Helvetica-Bold")]
+    extra += [("BACKGROUND", (0, idx_un), (-1, idx_un), AZUL),
+              ("TEXTCOLOR", (0, idx_un), (-1, idx_un), colors.white),
+              ("FONTNAME", (0, idx_un), (-1, idx_un), "Helvetica-Bold")]
+    t_er.setStyle(TableStyle(extra))
+    sec_er += [t_er]
+
+    # ── 4. FLUJO DE CAJA LIBRE ──────────────────────────────────────────
+    sec_fc = h2("Flujo de Caja Libre del Proyecto")
+    venta_fila = [0.0] * (h + 1)
+    va = fc.get("venta_activo", {})
+    if va.get("anno") is not None and va.get("anno") <= h:
+        venta_fila[va["anno"]] = va.get("flujo_neto_venta", 0)
+    vt_fila = [0.0] * (h + 1)
+    vt_fila[h] = fc.get("valor_terminal", 0)
+
+    fc_defs = [
+        ("(+) Utilidad Neta", fc["utilidad_neta"]),
+        ("(+) Depreciación", fc["depreciacion"]),
+        ("(+) Amortización Intangibles", fc["amortizacion"]),
+        ("(+/-) Inversiones (Capex)", fc["inversiones"]),
+        ("(+/-) Capital de Trabajo", fc["flujo_kw"]),
+        ("(+) Venta Activo (neta de impuesto)", venta_fila),
+        ("FLUJO DE CAJA LIBRE (sin VT)", fc["flujo_sin_vt"]),
+        ("(+) Valor Terminal (Perpetuidad)", vt_fila),
+        ("FLUJO DE CAJA LIBRE (con VT)", fc["flujo_con_vt"]),
+    ]
+    filas_fc, valores_fc = [anos], []
+    for lbl, serie in fc_defs:
+        vals = [serie[i] if i < len(serie) else 0 for i in range(h + 1)]
+        valores_fc.append(vals)
+        filas_fc.append([lbl] + [fmt_m(v) for v in vals])
+
+    t_fc = tabla(filas_fc, marca_negativos(filas_fc, valores_fc))
+    # Fila 7 = FCL sin VT (subtotal), fila 9 = FCL con VT (total)
+    t_fc.setStyle(TableStyle([
+        ("BACKGROUND", (0, 7), (-1, 7), AZULC),
+        ("FONTNAME", (0, 7), (-1, 7), "Helvetica-Bold"),
+        ("BACKGROUND", (0, 9), (-1, 9), AZUL),
+        ("TEXTCOLOR", (0, 9), (-1, 9), colors.white),
+        ("FONTNAME", (0, 9), (-1, 9), "Helvetica-Bold"),
+    ]))
+    sec_fc += [t_fc]
+
+    # ── 5. DEPRECIACIÓN Y AMORTIZACIÓN ──────────────────────────────────
+    sec_dep = []
+    if dep_tab:
+        sec_dep = h2("Tabla de Depreciación y Amortización")
+        sec_dep += [Paragraph("Cargos anuales por depreciación de activos fijos y "
+                            "amortización de intangibles.", st_nota)]
+        comps = [k for k in dep_tab if k != "Total Depreciación"]
+        filas_dep = [anos]
+        for comp in comps:
+            serie = dep_tab[comp]
+            vals = [serie[i] if i < len(serie) else 0 for i in range(h + 1)]
+            filas_dep.append([comp] + [fmt_m(v) if v else "—" for v in vals])
+        if "Total Depreciación" in dep_tab:
+            serie = dep_tab["Total Depreciación"]
+            vals = [serie[i] if i < len(serie) else 0 for i in range(h + 1)]
+            filas_dep.append(["Total Depreciación"] + [fmt_m(v) for v in vals])
+        t_dep = tabla(filas_dep)
+        ultima = len(filas_dep) - 1
+        t_dep.setStyle(TableStyle([
+            ("BACKGROUND", (0, ultima), (-1, ultima), AZUL),
+            ("TEXTCOLOR", (0, ultima), (-1, ultima), colors.white),
+            ("FONTNAME", (0, ultima), (-1, ultima), "Helvetica-Bold"),
+        ]))
+        sec_dep += [t_dep]
+
+    # ── 6. INDICADORES DE RENTABILIDAD ──────────────────────────────────
+    sec_ind = h2("Indicadores de Rentabilidad")
+    tir_s = "N/D" if _es_nan(ind_sin.get("tir", float('nan'))) else f"{ind_sin['tir']:.2%}"
+    tir_c = "N/D" if _es_nan(ind_con.get("tir", float('nan'))) else f"{ind_con['tir']:.2%}"
+
+    def cmp_tir_wacc(ind):
+        t, w = ind.get("tir"), ind.get("wacc", 0)
+        if t is None or _es_nan(t):
+            return "N/D"
+        return "SÍ  (TIR > WACC)" if t > w else "NO  (TIR ≤ WACC)"
+
+    filas_kpi = [
+        ["Indicador", "Sin Valor Terminal", "Con Valor Terminal (Empresa en Marcha)"],
+        ["VAN", fmt_m(ind_sin.get("van")), fmt_m(ind_con.get("van"))],
+        ["TIR", tir_s, tir_c],
+        ["WACC", f"{ind_sin.get('wacc', 0):.2%}", f"{ind_con.get('wacc', 0):.2%}"],
+        ["Payback", f"Año {ind_sin['payback']}" if ind_sin.get("payback") else "No recuperado",
+                    f"Año {ind_con['payback']}" if ind_con.get("payback") else "No recuperado"],
+        ["¿Proyecto atractivo?", cmp_tir_wacc(ind_sin), cmp_tir_wacc(ind_con)],
+        ["Decisión", ind_sin.get("decision", "—"), ind_con.get("decision", "—")],
+    ]
+    t_kpi = tabla(filas_kpi, col0_ratio=0.28)
+    fdec = len(filas_kpi) - 1
+    c_sin = VERDE if (ind_sin.get("van") or 0) > 0 else ROJO
+    c_con = VERDE if (ind_con.get("van") or 0) > 0 else ROJO
+    t_kpi.setStyle(TableStyle([
+        ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+        ("BACKGROUND", (1, fdec), (1, fdec), c_sin),
+        ("BACKGROUND", (2, fdec), (2, fdec), c_con),
+        ("TEXTCOLOR", (1, fdec), (-1, fdec), colors.white),
+        ("FONTNAME", (0, fdec), (-1, fdec), "Helvetica-Bold"),
+    ]))
+    sec_ind += [t_kpi, Spacer(1, 12)]
+
+    nota = ("<b>Interpretación:</b> un VAN positivo indica que el proyecto genera valor por "
+            "encima del costo de capital (WACC). La TIR es la tasa de rendimiento intrínseca; "
+            "si TIR &gt; WACC el proyecto es atractivo. El Valor Terminal captura el potencial "
+            "de la empresa como negocio en marcha más allá del horizonte de evaluación.")
+    caja = Table([[Paragraph(nota, st_intro)]], colWidths=[util])
+    caja.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#fef9e7")),
+        ("LINEBEFORE", (0, 0), (0, -1), 3, colors.HexColor("#f39c12")),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 12),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+    ]))
+    sec_ind += [caja]
+
+    # ── Ensamblado: cada sección entera (nunca se parte) y 2 por hoja si caben ──
+    # KeepTogether mantiene la sección completa; al no forzar saltos de página,
+    # ReportLab coloca la siguiente sección en la misma hoja cuando hay espacio.
+    for sec in (sec_resumen, sec_er, sec_fc, sec_dep, sec_ind):
+        if not sec:
+            continue
+        story.append(KeepTogether(sec))
+        story.append(Spacer(1, 22))
+
+    return story
+
+
+def _exportar_pdf_reportlab_bytes(resultado: dict) -> bytes:
+    """ReportLab: PDF profesional COMPLETO retornando bytes (para Flask/nube)."""
+    import io
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=landscape(A4),
+        rightMargin=12 * mm, leftMargin=12 * mm,
+        topMargin=16 * mm, bottomMargin=16 * mm,
+        title="Flujo de Caja — Evaluación Financiera",
+        author="Limited Group S.A.",
+    )
+    doc.build(_construir_story(resultado), canvasmaker=_make_numbered_canvas())
     return buffer.getvalue()
 
 
 def _exportar_pdf_reportlab(resultado: dict, output_path: str):
-    """Fallback: PDF básico con ReportLab si WeasyPrint falla."""
-    try:
-        from reportlab.lib.pagesizes import A4, landscape
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import cm, mm
-        from reportlab.lib import colors
-        from reportlab.platypus import (
-            SimpleDocTemplate, Table, TableStyle, Spacer,
-            Paragraph, HRFlowable, PageBreak
-        )
-        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-    except ImportError:
-        raise RuntimeError("Ni WeasyPrint ni ReportLab están disponibles.")
-
-    cfg     = resultado["config"]
-    er      = resultado["estado_resultados"]
-    fc      = resultado["flujo_caja"]
-    ind_sin = resultado["indicadores_sin_vt"]
-    ind_con = resultado["indicadores_con_vt"]
-    h       = cfg["horizonte_evaluacion"]
-
-    AZUL   = colors.HexColor("#1a3a5c")
-    AZUL2  = colors.HexColor("#2980b9")
-    AZULC  = colors.HexColor("#d6eaf8")
-    VERDE  = colors.HexColor("#27ae60")
-    ROJO   = colors.HexColor("#e74c3c")
-    GRIS   = colors.HexColor("#f5f7fa")
+    """ReportLab: PDF profesional COMPLETO a disco (mismo contenido que el modo bytes)."""
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate
 
     doc = SimpleDocTemplate(
-        output_path,
-        pagesize=landscape(A4),
-        rightMargin=12*mm, leftMargin=12*mm,
-        topMargin=15*mm, bottomMargin=18*mm,
+        output_path, pagesize=landscape(A4),
+        rightMargin=12 * mm, leftMargin=12 * mm,
+        topMargin=16 * mm, bottomMargin=16 * mm,
+        title="Flujo de Caja — Evaluación Financiera",
+        author="Limited Group S.A.",
     )
-
-    styles = getSampleStyleSheet()
-    st_title  = ParagraphStyle("title",  fontSize=20, textColor=colors.white, alignment=TA_CENTER, fontName="Helvetica-Bold")
-    st_sub    = ParagraphStyle("sub",    fontSize=12, textColor=colors.white, alignment=TA_CENTER)
-    st_h2     = ParagraphStyle("h2",     fontSize=12, textColor=AZUL, fontName="Helvetica-Bold", spaceAfter=6)
-    st_nota   = ParagraphStyle("nota",   fontSize=7,  textColor=colors.grey, fontName="Helvetica-Oblique")
-    st_normal = styles["Normal"]
-
-    def tabla_rl(datos, col_widths=None, header_row=True):
-        t = Table(datos, colWidths=col_widths)
-        style_list = [
-            ("FONTNAME",    (0, 0), (-1, -1), "Helvetica"),
-            ("FONTSIZE",    (0, 0), (-1, -1), 7.5),
-            ("GRID",        (0, 0), (-1, -1), 0.3, colors.HexColor("#dde3ea")),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [GRIS, colors.white]),
-            ("VALIGN",      (0, 0), (-1, -1), "MIDDLE"),
-            ("ALIGN",       (1, 0), (-1, -1), "RIGHT"),
-        ]
-        if header_row:
-            style_list += [
-                ("BACKGROUND",  (0, 0), (-1, 0), AZUL),
-                ("TEXTCOLOR",   (0, 0), (-1, 0), colors.white),
-                ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE",    (0, 0), (-1, 0), 8),
-            ]
-        t.setStyle(TableStyle(style_list))
-        return t
-
-    elements = []
-
-    # Portada
-    portada = Table(
-        [[Paragraph(f"<b>{cfg['empresa']['nombre']}</b>", st_title)],
-         [Paragraph("Evaluación Financiera del Proyecto", st_sub)],
-         [Paragraph(f"{cfg['empresa']['producto']} · {cfg['empresa']['sector']}", st_sub)],
-         [Spacer(1, 20)],
-         [Paragraph(f"WACC: {cfg['wacc']:.0%}  ·  Impuesto: {cfg['impuestos']['tasa_impositiva']:.0%}  ·  Horizonte: {h} años", st_sub)],
-         [Paragraph(datetime.date.today().strftime("%d de %B de %Y"), st_nota)],
-        ], colWidths=["100%"])
-    portada.setStyle(TableStyle([
-        ("BACKGROUND",   (0, 0), (-1, -1), AZUL),
-        ("TOPPADDING",   (0, 0), (-1, -1), 20),
-        ("BOTTOMPADDING",(0, 0), (-1, -1), 20),
-        ("LEFTPADDING",  (0, 0), (-1, -1), 30),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 30),
-    ]))
-    elements.extend([portada, PageBreak()])
-
-    # Estado de Resultados
-    elements.append(Paragraph("Estado de Resultados Proyectado", st_h2))
-    years = ["Concepto"] + [f"Año {i}" for i in range(h + 1)]
-    filas_er = [years]
-    for label, key in [
-        ("Ingresos Operativos",            "ingresos"),
-        ("(-) Egresos Operativos",         "egresos_op"),
-        ("(-) Depreciación",               "depreciacion"),
-        ("(-) Amortización",               "amortizacion"),
-        ("EBIT",                           "ebit"),
-        ("(-) Impuesto (16%)",             "impuesto"),
-        ("UTILIDAD NETA",                  "utilidad_neta"),
-    ]:
-        row = [label] + [fmt_m(er[key][i]) for i in range(h + 1)]
-        filas_er.append(row)
-
-    t_er = tabla_rl(filas_er)
-    t_er.setStyle(TableStyle([
-        ("FONTNAME",   (0, len(filas_er)-1), (-1, len(filas_er)-1), "Helvetica-Bold"),
-        ("BACKGROUND", (0, len(filas_er)-1), (-1, len(filas_er)-1), AZUL),
-        ("TEXTCOLOR",  (0, len(filas_er)-1), (-1, len(filas_er)-1), colors.white),
-    ]))
-    elements.extend([t_er, Spacer(1, 12), PageBreak()])
-
-    # Flujo de Caja
-    elements.append(Paragraph("Flujo de Caja Libre del Proyecto", st_h2))
-    venta_fila = [0.0] * (h + 1)
-    venta_fila[fc["venta_activo"]["anno"]] = fc["venta_activo"]["flujo_neto_venta"]
-    vt_fila = [0.0] * (h + 1)
-    vt_fila[h] = fc["valor_terminal"]
-
-    filas_fc = [["Concepto"] + [f"Año {i}" for i in range(h + 1)]]
-    for label, vals in [
-        ("(+) Utilidad Neta",                fc["utilidad_neta"]),
-        ("(+) Depreciación",                 fc["depreciacion"]),
-        ("(+) Amortización",                 fc["amortizacion"]),
-        ("(+/-) Inversiones",                fc["inversiones"]),
-        ("(+/-) Capital de Trabajo",         fc["flujo_kw"]),
-        ("(+) Venta Activo (neto impuesto)", venta_fila),
-        ("FCL SIN Valor Terminal",           fc["flujo_sin_vt"]),
-        ("(+) Valor Terminal",               vt_fila),
-        ("FCL CON Valor Terminal",           fc["flujo_con_vt"]),
-    ]:
-        filas_fc.append([label] + [fmt_m(vals[i]) for i in range(h + 1)])
-
-    t_fc = tabla_rl(filas_fc)
-    for idx, bold_row in [(7, True), (9, True)]:
-        t_fc.setStyle(TableStyle([
-            ("FONTNAME",   (0, idx), (-1, idx), "Helvetica-Bold"),
-            ("BACKGROUND", (0, idx), (-1, idx), AZUL2 if idx == 7 else AZUL),
-            ("TEXTCOLOR",  (0, idx), (-1, idx), colors.white),
-        ]))
-    elements.extend([t_fc, Spacer(1, 12), PageBreak()])
-
-    # Indicadores
-    elements.append(Paragraph("Indicadores de Rentabilidad", st_h2))
-    color_van = VERDE if ind_con["van"] > 0 else ROJO
-    tir_con = fmt_pct(ind_con["tir"])
-    tir_sin = fmt_pct(ind_sin["tir"])
-
-    filas_kpi = [
-        ["Indicador", "Sin Valor Terminal", "Con Valor Terminal (Empresa en Marcha)"],
-        ["VAN", fmt_m(ind_sin["van"]), fmt_m(ind_con["van"])],
-        ["TIR", tir_sin, tir_con],
-        ["WACC", fmt_pct(ind_sin["wacc"]), fmt_pct(ind_con["wacc"])],
-        ["TIR > WACC",
-         "SÍ" if not (ind_sin["tir"] != ind_sin["tir"]) and ind_sin["tir"] > ind_sin["wacc"] else "NO",
-         "SÍ" if not (ind_con["tir"] != ind_con["tir"]) and ind_con["tir"] > ind_con["wacc"] else "NO"],
-        ["Decisión", ind_sin["decision"], ind_con["decision"]],
-    ]
-    t_kpi = tabla_rl(filas_kpi)
-    t_kpi.setStyle(TableStyle([
-        ("BACKGROUND", (0, 5), (-1, 5), color_van),
-        ("TEXTCOLOR",  (0, 5), (-1, 5), colors.white),
-        ("FONTNAME",   (0, 5), (-1, 5), "Helvetica-Bold"),
-    ]))
-    elements.append(t_kpi)
-
-    doc.build(elements)
+    doc.build(_construir_story(resultado), canvasmaker=_make_numbered_canvas())
     print(f"[PDF] Generado con ReportLab: {output_path}")
+
+
 
 
 if __name__ == "__main__":
